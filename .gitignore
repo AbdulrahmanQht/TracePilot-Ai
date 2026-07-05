@@ -1,0 +1,103 @@
+### Spring Boot ###
+HELP.md
+
+### Gradle ###
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# Gradle daemon/cache
+gradle-app.setting
+.gradle-cache/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings/
+.springBeans
+.sts4-cache
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+### IntelliJ IDEA ###
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+### VS Code ###
+.vscode/
+
+### Environment ###
+.env
+.env.*
+!.env.example
+env/
+.venv/
+venv/
+
+### Python ###
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.python-version
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+
+### Node / React ###
+node_modules/
+dist/
+coverage/
+.npm/
+.pnpm-store/
+.bun/
+.parcel-cache/
+.eslintcache
+*.tsbuildinfo
+
+### Logs ###
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+bun-debug.log*
+
+### OS ###
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+### Docker ###
+docker-compose.override.yml
+
+### Misc ###
+*.swp
+*.swo
+*~
+
+*.sql
