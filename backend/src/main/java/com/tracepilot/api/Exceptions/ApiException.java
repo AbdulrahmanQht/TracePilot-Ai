@@ -1,4 +1,4 @@
-package com.tracepilot.api.Exception;
+package com.tracepilot.api.Exceptions;
 
 import org.springframework.http.HttpStatus;
 

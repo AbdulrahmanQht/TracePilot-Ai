@@ -6,5 +6,5 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record JwtConfig(
         String secret,
         long accessExpiryMs,
-        int refreshExpiryDays) {
-}
+        int refreshExpiryDays
+) {}

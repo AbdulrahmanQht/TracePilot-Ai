@@ -22,6 +22,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 
 import com.tracepilot.api.Entities.User;
+
 @Entity
 @Table(name = "refresh_tokens")
 @Getter

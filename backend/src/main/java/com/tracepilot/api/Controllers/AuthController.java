@@ -1,0 +1,109 @@
+package com.tracepilot.api.Controllers;
+
+import java.time.Duration;
+
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CookieValue;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import jakarta.validation.Valid;
+
+import com.tracepilot.api.Config.JwtConfig;
+import com.tracepilot.api.DTO.Request.LoginRequest;
+import com.tracepilot.api.DTO.Request.RegisterRequest;
+import com.tracepilot.api.DTO.Response.AuthResponse;
+import com.tracepilot.api.Exceptions.ApiException;
+import com.tracepilot.api.Services.AuthService;
+import com.tracepilot.api.Services.AuthResult;
+
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
+@RestController
+@RequestMapping("api/v1/auth")
+public class AuthController {
+    private static final String REFRESH_COOKIE = "refreshToken";
+
+    private final AuthService authService;
+    private final JwtConfig jwtConfig;
+
+    public AuthController(AuthService authService, JwtConfig jwtConfig) {
+        this.authService = authService;
+        this.jwtConfig = jwtConfig;
+    }
+
+    @PostMapping("/register")
+    public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
+        log.info("Registration request received for email={}", request.email());
+        AuthResult result = authService.registerUser(request);
+
+        log.info("User registered successfully: userId={}, email={}",
+                result.response().user().id(),
+                result.response().user().email());
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, buildCookie(result.refreshToken()).toString())
+                .body(result.response());
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
+        log.info("Login attempt for email={}", request.email());
+        AuthResult result = authService.loginUser(request);
+
+        log.info("User logged in successfully: userId={}",
+                result.response().user().id());
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, buildCookie(result.refreshToken()).toString())
+                .body(result.response());
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthResponse> refresh(
+            @CookieValue(name = REFRESH_COOKIE, required = false) String refreshToken) {
+        if (refreshToken == null) {
+            throw new ApiException("Missing refresh token", HttpStatus.UNAUTHORIZED);
+        }
+        log.debug("Refresh token request received");
+        AuthResult result = authService.refreshToken(refreshToken);
+
+        log.info("Access token refreshed for userId={}",
+                result.response().user().id());
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, buildCookie(result.refreshToken()).toString())
+                .body(result.response());
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(
+            @CookieValue(name = REFRESH_COOKIE, required = false) String refreshToken) {
+        log.info("Logout request received");
+        if (refreshToken != null) {
+            authService.logout(refreshToken);
+            log.info("Refresh token revoked");
+        }
+        return ResponseEntity.noContent()
+                .header(HttpHeaders.SET_COOKIE, clearCookie().toString())
+                .build();
+    }
+
+    private ResponseCookie buildCookie(String rawToken) {
+        return ResponseCookie.from(REFRESH_COOKIE, rawToken)
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("Strict")
+                .path("/api/v1/auth")
+                .maxAge(Duration.ofDays(jwtConfig.refreshExpiryDays()))
+                .build();
+    }
+
+    private ResponseCookie clearCookie() {
+        return ResponseCookie.from(REFRESH_COOKIE, "")
+                .httpOnly(true).secure(true).sameSite("Strict").path("/api/v1/auth").maxAge(0).build();
+    }
+}

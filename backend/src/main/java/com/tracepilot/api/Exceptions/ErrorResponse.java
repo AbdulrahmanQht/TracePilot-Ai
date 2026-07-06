@@ -1,4 +1,4 @@
-package com.tracepilot.api.Exception;
+package com.tracepilot.api.Exceptions;
 
 import java.time.Instant;
 

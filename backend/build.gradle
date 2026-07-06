@@ -41,6 +41,8 @@ dependencies {
 
 	implementation 'com.bucket4j:bucket4j-core:8.7.0'
 
+	developmentOnly 'org.springframework.boot:spring-boot-devtools'
+
 	compileOnly 'org.projectlombok:lombok'
 	runtimeOnly 'org.postgresql:postgresql'
 	annotationProcessor 'org.projectlombok:lombok'
