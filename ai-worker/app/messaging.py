@@ -1,0 +1,127 @@
+from __future__ import annotations
+
+import asyncio
+import json
+import os
+
+import aio_pika
+from aio_pika.abc import (
+    AbstractIncomingMessage,
+    AbstractRobustChannel,
+    AbstractRobustConnection,
+    AbstractQueue,
+)
+
+from app.messaging_schemas import AuditJobMessage, AuditResultMessage
+from utils.logger import Logger
+
+from app.agents import run_audit
+
+logger = Logger()
+
+RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "localhost")
+RABBITMQ_PORT = int(os.getenv("RABBITMQ_PORT", "5672"))
+RABBITMQ_USERNAME = os.getenv("RABBITMQ_USERNAME", "guest")
+RABBITMQ_PASSWORD = os.getenv("RABBITMQ_PASSWORD", "guest")
+RABBITMQ_VHOST = os.getenv("RABBITMQ_VHOST", "/")
+JOBS_QUEUE = os.getenv("AUDIT_JOBS_QUEUE", "audit.jobs")
+DLQ_QUEUE = os.getenv("AUDIT_JOBS_DLQ", "audit.jobs.dlq")
+RESULTS_QUEUE = os.getenv("AUDIT_RESULTS_QUEUE", "audit.results")
+PREFETCH_COUNT = int(os.getenv("AUDIT_WORKER_PREFETCH", "4"))
+
+
+class AuditConsumer:
+    def __init__(self) -> None:
+        self._connection: AbstractRobustConnection | None = None
+        self._channel: AbstractRobustChannel | None = None
+        self._jobs_queue: AbstractQueue | None = None
+        self._consumer_tag: str | None = None
+
+    async def start(self) -> None:
+        self._connection = await aio_pika.connect_robust(
+            host=RABBITMQ_HOST,
+            port=RABBITMQ_PORT,
+            login=RABBITMQ_USERNAME,
+            password=RABBITMQ_PASSWORD,
+            virtualhost=RABBITMQ_VHOST,
+        )
+        self._channel = await self._connection.channel()
+        await self._channel.set_qos(prefetch_count=PREFETCH_COUNT)
+
+        # DLQ must exist before audit.jobs references it as a dead-letter target.
+        await self._channel.declare_queue(DLQ_QUEUE, durable=True)
+
+        self._jobs_queue = await self._channel.get_queue(JOBS_QUEUE)
+
+        # Declared here so the first publish_result() call never races a missing queue.
+        await self._channel.declare_queue(RESULTS_QUEUE, durable=True)
+
+        self._consumer_tag = await self._jobs_queue.consume(self._on_message)
+        logger.info(
+            f"audit_consumer_started queue={JOBS_QUEUE} prefetch={PREFETCH_COUNT}"
+        )
+
+    async def stop(self) -> None:
+        if self._jobs_queue and self._consumer_tag:
+            await self._jobs_queue.cancel(self._consumer_tag)
+        if self._connection:
+            await self._connection.close()
+        logger.info("audit_consumer_stopped")
+
+    async def _on_message(self, message: AbstractIncomingMessage) -> None:
+        try:
+            payload = json.loads(message.body.decode("utf-8"))
+            job = AuditJobMessage.model_validate(payload)
+        except Exception as exc:
+            # Can't recover an audit_id from this, so there's nothing to report
+            # back to the backend. Dead-letter it for manual inspection.
+            logger.error(f"audit_job_malformed error={str(exc)}")
+            await message.reject(requeue=False)
+            return
+
+        audit_id = job.audit_id
+        logger.info(f"audit_job_received audit_id={audit_id}")
+
+        try:
+            # Convert the list of structured Pydantic objects into a clean text string layout for the LLM prompt block
+            history_prompt = "\n".join(
+                f"- {h.recorded_at}: score={h.reliability_score}, summary={h.signal_summary}"
+                for h in job.prior_history
+            )
+
+            report = await asyncio.to_thread(run_audit, job.raw_trace, history_prompt)
+            result = AuditResultMessage(
+                audit_id=audit_id, status="COMPLETED", report=report
+            )
+            logger.info(f"audit_job_completed audit_id={audit_id}")
+        except Exception as exc:
+            logger.error(f"audit_job_failed audit_id={audit_id} error={str(exc)}")
+            result = AuditResultMessage(
+                audit_id=audit_id, status="FAILED", error=str(exc)
+            )
+
+        try:
+            await self._publish_result(result)
+        except Exception as exc:
+            logger.error(
+                f"audit_result_publish_failed audit_id={audit_id} error={str(exc)}"
+            )
+            await message.reject(requeue=False)
+            return
+
+        await message.ack()
+
+    async def _publish_result(self, result: AuditResultMessage) -> None:
+        if self._channel is None:
+            raise RuntimeError("channel not initialized")
+        await self._channel.default_exchange.publish(
+            aio_pika.Message(
+                body=result.model_dump_json(by_alias=True).encode("utf-8"),
+                content_type="application/json",
+                delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
+            ),
+            routing_key=RESULTS_QUEUE,
+        )
+
+
+audit_consumer = AuditConsumer()

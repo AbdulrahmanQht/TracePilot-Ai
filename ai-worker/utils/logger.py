@@ -1,0 +1,71 @@
+import os
+import sys
+import uuid
+import logging
+from datetime import datetime
+from logging.handlers import TimedRotatingFileHandler
+
+
+class Logger:
+    """
+    A custom logger that creates daily log files and includes unique request IDs for better traceability.
+    """
+
+    def __init__(self):
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self.log_dir = os.path.join(base_dir, "logs")
+
+        # Ensure the log directory exists
+        if not os.path.exists(self.log_dir):
+            os.makedirs(self.log_dir)
+
+        current_date = datetime.now().strftime("%Y-%m-%d")
+        log_file = os.path.join(self.log_dir, f"{current_date}.txt")
+
+        # Set up logging
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.INFO)
+
+        # Prevent duplicate logging
+        if not self.logger.handlers:
+            # Create a file handler that rotates logs daily
+            file_handler = TimedRotatingFileHandler(
+                log_file, when="midnight", interval=1, backupCount=30, encoding="utf-8"
+            )
+
+            formatter = logging.Formatter(
+                fmt="-" * 75 + "\n" + "%(asctime)s - %(levelname)s - %(message)s",
+                datefmt="%d/%m/%Y - %I:%M %p",
+            )
+
+            file_handler.setFormatter(formatter)
+            stream_handler = logging.StreamHandler(sys.stdout)
+            stream_handler.setFormatter(formatter)
+
+            self.logger.addHandler(file_handler)
+            self.logger.addHandler(stream_handler)
+            self.logger.propagate = False
+
+    def log_results(self, model_name, latency, confidence, result):
+        """Logs specific performance data for the Comparative Analysis"""
+        rid = str(uuid.uuid4())
+        data = f"ID: {rid}\nMODEL: {model_name} | Latency: {latency}ms | Confidence: {confidence}% | Result: {result}"
+        self.logger.info(data)
+
+    def info(self, msg):
+        rid = str(uuid.uuid4())
+        self.logger.info(f"ID: {rid}\n{msg}")
+
+    def warn(self, msg):
+        rid = str(uuid.uuid4())
+        self.logger.warning(f"ID: {rid}\n{msg}")
+
+    def error(self, msg, include_stacktrace=True):
+        # Detect if there is an exception
+        has_active_exception = sys.exc_info()[0] is not None
+
+        rid = str(uuid.uuid4())
+        # If there is no exception it doesn't print it to txt file
+        self.logger.error(
+            f"ID: {rid}\n{msg}", exc_info=include_stacktrace and has_active_exception
+        )

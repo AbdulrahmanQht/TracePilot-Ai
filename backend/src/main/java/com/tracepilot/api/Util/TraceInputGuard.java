@@ -20,7 +20,7 @@ public final class TraceInputGuard {
             throw new ApiException("Trace payload cannot be empty.", HttpStatus.BAD_REQUEST);
         }
         if (rawTrace.length() > MAX_TRACE_CHARS) {
-            throw new ApiException("Trace payload exceeds the 80,000 character limit.", HttpStatus.PAYLOAD_TOO_LARGE);
+            throw new ApiException("Trace payload exceeds the 80,000 character limit.", HttpStatus.CONTENT_TOO_LARGE);
         }
     }
 
