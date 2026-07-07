@@ -50,6 +50,6 @@ class AuditReportPayload(CamelModel):
 class AuditResultMessage(CamelModel):
     """Shape of a message published to audit.results."""
     audit_id: str
-    status: Literal["COMPLETED", "FAILED"]
+    status: Literal["COMPLETE", "FAILED"]
     report: Optional[AuditReportPayload] = None
     error: Optional[str] = None

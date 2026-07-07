@@ -91,7 +91,7 @@ class AuditConsumer:
 
             report = await asyncio.to_thread(run_audit, job.raw_trace, history_prompt)
             result = AuditResultMessage(
-                audit_id=audit_id, status="COMPLETED", report=report
+                audit_id=audit_id, status="COMPLETE", report=report
             )
             logger.info(f"audit_job_completed audit_id={audit_id}")
         except Exception as exc:
