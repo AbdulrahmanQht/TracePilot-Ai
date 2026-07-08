@@ -11,14 +11,17 @@ import org.springframework.data.repository.query.Param;
 import com.tracepilot.api.Entities.User;
 import com.tracepilot.api.Enums.OAuthProvider;
 
-
 public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findByEmail(String email);
 
     Optional<User> findByOAuthProviderAndOAuthId(OAuthProvider oAuthProvider, String oAuthId);
-    
+
     boolean existsByEmail(String email);
-    
+
+    Optional<User> findByVerificationToken(String verificationToken);
+
+    Optional<User> findByResetPasswordToken(String resetPasswordToken);
+
     boolean existsByOAuthProviderAndOAuthId(OAuthProvider oAuthProvider, String oAuthId);
 
     @Modifying

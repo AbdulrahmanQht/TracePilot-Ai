@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.UUID;
 
+import org.springframework.amqp.AmqpRejectAndDontRequeueException;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
@@ -50,7 +51,7 @@ public class AuditResultListener {
         } catch (Exception e) {
             log.error("Malformed audit.results message, discarding. Raw body: {}",
                     new String(message.getBody(), StandardCharsets.UTF_8));
-            return;
+            throw new AmqpRejectAndDontRequeueException("Malformed audit.results message", e);
         }
 
         UUID auditId;
@@ -58,13 +59,13 @@ public class AuditResultListener {
             auditId = UUID.fromString(root.path("auditId").asText());
         } catch (Exception e) {
             log.error("audit.results message missing/invalid auditId, discarding: {}", root);
-            return;
+            throw new AmqpRejectAndDontRequeueException("Missing or invalid auditId", e);
         }
 
         TraceAudit audit = auditRepository.findById(auditId).orElse(null);
         if (audit == null) {
             log.error("audit.results referenced auditId={} but no TraceAudit row exists.", auditId);
-            return;
+            throw new AmqpRejectAndDontRequeueException("No TraceAudit row for auditId=" + auditId);
         }
 
         if (audit.getStatus() == AuditStatus.COMPLETE ||
@@ -85,13 +86,13 @@ public class AuditResultListener {
 
         if (!"COMPLETE".equals(status)) {
             log.error("Audit {} received unrecognized status '{}' on audit.results, discarding.", auditId, status);
-            return;
+            throw new AmqpRejectAndDontRequeueException("Unrecognized status: " + status);
         }
 
         JsonNode report = root.get("report");
         if (report == null || report.isNull()) {
             log.error("Audit {} marked COMPLETE but has no report payload, discarding.", auditId);
-            return;
+            throw new AmqpRejectAndDontRequeueException("Missing report payload for auditId=" + auditId);
         }
 
         persistCompletedReport(audit, report);

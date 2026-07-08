@@ -8,8 +8,10 @@ import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.validation.Valid;
@@ -17,6 +19,8 @@ import jakarta.validation.Valid;
 import com.tracepilot.api.Config.JwtConfig;
 import com.tracepilot.api.DTO.Request.LoginRequest;
 import com.tracepilot.api.DTO.Request.RegisterRequest;
+import com.tracepilot.api.DTO.Request.ForgotPasswordRequest;
+import com.tracepilot.api.DTO.Request.ResetPasswordRequest;
 import com.tracepilot.api.DTO.Response.AuthResponse;
 import com.tracepilot.api.Exceptions.ApiException;
 import com.tracepilot.api.Services.AuthService;
@@ -90,6 +94,27 @@ public class AuthController {
         return ResponseEntity.noContent()
                 .header(HttpHeaders.SET_COOKIE, clearCookie().toString())
                 .build();
+    }
+
+    @GetMapping("/verify-email")
+    public ResponseEntity<Void> verifyEmail(@RequestParam String token) {
+        log.info("Email verification request received");
+        authService.verifyEmail(token);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        log.info("Forgot-password request received");
+        authService.forgotPassword(request.email());
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<Void> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        log.info("Reset-password request received");
+        authService.resetPassword(request.token(), request.newPassword());
+        return ResponseEntity.ok().build();
     }
 
     private ResponseCookie buildCookie(String rawToken) {

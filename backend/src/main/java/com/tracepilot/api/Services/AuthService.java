@@ -1,11 +1,13 @@
 package com.tracepilot.api.Services;
 
 import java.time.Instant;
-
+import java.time.temporal.ChronoUnit;
+import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.mail.MailException;
 
 import com.tracepilot.api.DTO.Request.LoginRequest;
 import com.tracepilot.api.DTO.Request.RegisterRequest;
@@ -27,13 +29,15 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
+    private final EmailService emailService;
 
     public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService,
-            RefreshTokenService refreshTokenService) {
+            RefreshTokenService refreshTokenService, EmailService emailService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.refreshTokenService = refreshTokenService;
+        this.emailService = emailService;
     }
 
     @Transactional
@@ -52,9 +56,24 @@ public class AuthService {
         String hashedPassword = passwordEncoder.encode(request.password());
         user.setPasswordHash(hashedPassword);
 
+        String verificationToken = UUID.randomUUID().toString();
+        user.setVerificationToken(verificationToken);
+        user.setVerificationTokenExpiresAt(Instant.now().plus(24, ChronoUnit.HOURS));
+
         log.debug("Saving user entity to the database...");
         User savedUser = userRepository.save(user);
         log.info("User registered in database with ID: {}", savedUser.getId());
+
+        try {
+            log.debug("Sending user a verification email...");
+            emailService.sendVerificationEmail(savedUser.getEmail(), verificationToken);
+            log.info("Sent an email to User with ID: {}", savedUser.getId());
+        } catch (MailException e) {
+            log.error("Failed to send verification email to user {}", savedUser.getId(), e);
+            throw new ApiException(
+                    "Unable to send verification email. Please try again later.",
+                    HttpStatus.SERVICE_UNAVAILABLE);
+        }
 
         log.debug("Generating token access for {}", savedUser.getId());
         String accessToken = jwtService.generateAccessToken(savedUser);
@@ -143,6 +162,27 @@ public class AuthService {
     }
 
     @Transactional
+    public void verifyEmail(String token) {
+        User user = userRepository.findByVerificationToken(token)
+                .orElseThrow(() -> {
+                    log.warn("Email verification failed: no user found for token");
+                    return new ApiException("Invalid or expired verification link", HttpStatus.BAD_REQUEST);
+                });
+
+        if (user.getVerificationTokenExpiresAt().isBefore(Instant.now())) {
+            log.warn("Email verification failed: token expired for user {}", user.getId());
+            throw new ApiException("Invalid or expired verification link", HttpStatus.BAD_REQUEST);
+        }
+
+        user.setIsVerified(true);
+        user.setVerificationToken(null);
+        user.setVerificationTokenExpiresAt(null);
+        userRepository.save(user);
+
+        log.info("Email verified for user {}", user.getId());
+    }
+
+    @Transactional
     public User processOAuthAfterLogin(String email, String displayName, OAuthProvider provider, String oAuthId) {
         if (email == null || email.isBlank()) {
             log.error("OAuth login rejected: provider did not supply an email");
@@ -169,6 +209,9 @@ public class AuthService {
                 log.info("Linking {} account to existing user {}", provider, existingUser.getId());
                 existingUser.setOAuthProvider(provider);
                 existingUser.setOAuthId(oAuthId);
+                existingUser.setIsVerified(true);
+                existingUser.setVerificationToken(null);
+                existingUser.setVerificationTokenExpiresAt(null);
 
                 User savedUser = userRepository.save(existingUser);
                 log.info("Successfully linked OAuth account for user {}", savedUser.getId());
@@ -200,5 +243,53 @@ public class AuthService {
             log.info("Created new OAuth user with ID {}", savedUser.getId());
             return savedUser;
         });
+    }
+
+    @Transactional
+    public void forgotPassword(String email) {
+        String normalizedEmail = email.trim().toLowerCase();
+
+        userRepository.findByEmail(normalizedEmail).ifPresent(user -> {
+            if (user.getPasswordHash() == null) {
+                log.info("Password reset requested for OAuth-only account {}, skipping", user.getId());
+                return;
+            }
+
+            String resetToken = UUID.randomUUID().toString();
+            user.setResetPasswordToken(resetToken);
+            user.setResetPasswordTokenExpiresAt(Instant.now().plus(1, ChronoUnit.HOURS));
+            userRepository.save(user);
+
+            try {
+                emailService.sendPasswordResetEmail(user.getEmail(), resetToken);
+            } catch (MailException e) {
+                log.error("Failed to send password reset email to user {}", user.getId(), e);
+            }
+        });
+
+        log.info("Password reset requested for email: {}", normalizedEmail);
+    }
+
+    @Transactional
+    public void resetPassword(String token, String newPassword) {
+        User user = userRepository.findByResetPasswordToken(token)
+                .orElseThrow(() -> {
+                    log.warn("Password reset failed: no user found for token");
+                    return new ApiException("Invalid or expired reset link", HttpStatus.BAD_REQUEST);
+                });
+
+        if (user.getResetPasswordTokenExpiresAt().isBefore(Instant.now())) {
+            log.warn("Password reset failed: token expired for user {}", user.getId());
+            throw new ApiException("Invalid or expired reset link", HttpStatus.BAD_REQUEST);
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        user.setResetPasswordToken(null);
+        user.setResetPasswordTokenExpiresAt(null);
+        userRepository.save(user);
+
+        refreshTokenService.revokeAllForUser(user.getId());
+
+        log.info("Password reset completed for user {}", user.getId());
     }
 }
