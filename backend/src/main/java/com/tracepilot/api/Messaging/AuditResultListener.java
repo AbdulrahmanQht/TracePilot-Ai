@@ -9,7 +9,7 @@ import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-
+import org.springframework.dao.DataIntegrityViolationException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tracepilot.api.Entities.AgentReport;
@@ -68,9 +68,7 @@ public class AuditResultListener {
             throw new AmqpRejectAndDontRequeueException("No TraceAudit row for auditId=" + auditId);
         }
 
-        if (audit.getStatus() == AuditStatus.COMPLETE ||
-                audit.getStatus() == AuditStatus.FAILED) {
-
+        if (audit.getStatus() == AuditStatus.COMPLETE || audit.getStatus() == AuditStatus.FAILED) {
             log.info("Ignoring duplicate result for already finalized audit {}", auditId);
             return;
         }
@@ -119,7 +117,11 @@ public class AuditResultListener {
         history.setReliabilityScore(reliabilityScore);
         history.setSignalSummary(reliabilityBlock.toString());
         history.setRecordedAt(Instant.now());
-        reliabilityHistoryRepository.save(history);
+        try {
+            reliabilityHistoryRepository.saveAndFlush(history);
+        } catch (DataIntegrityViolationException e) {
+            log.info("Duplicate ReliabilityHistory for audit {}, ignoring.", audit.getId());
+        }
 
         audit.setOverallScore(report.path("overallScore").asInt(0));
         audit.setExtractedEvidence(report.path("extractedEvidence").toString());
@@ -145,6 +147,10 @@ public class AuditResultListener {
         if (processingTimeNode != null && processingTimeNode.isInt()) {
             agentReport.setProcessingTimeMs(processingTimeNode.asInt());
         }
-        agentReportRepository.save(agentReport);
+        try {
+            agentReportRepository.saveAndFlush(agentReport);
+        } catch (DataIntegrityViolationException e) {
+            log.info("Duplicate AgentReport for audit {} / type {}, ignoring.", audit.getId(), type);
+        }
     }
 }
