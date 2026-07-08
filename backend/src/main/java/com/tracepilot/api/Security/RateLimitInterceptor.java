@@ -1,6 +1,8 @@
 package com.tracepilot.api.Security;
 
-import com.tracepilot.api.Services.RateLimitingService;
+import java.util.UUID;
+
+import com.tracepilot.api.Services.RateLimiterService;
 import io.github.bucket4j.Bucket;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -11,14 +13,15 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
+import org.springframework.beans.factory.annotation.Qualifier;
 
 @Slf4j
 @Component
 public class RateLimitInterceptor implements HandlerInterceptor {
-    private final RateLimitingService rateLimitingService;
+    private final RateLimiterService<UUID> rateLimiterService;
 
-    public RateLimitInterceptor(RateLimitingService rateLimitingService) {
-        this.rateLimitingService = rateLimitingService;
+    public RateLimitInterceptor(@Qualifier("auditRateLimiter") RateLimiterService<UUID> rateLimiterService) {
+        this.rateLimiterService = rateLimiterService;
     }
 
     @Override
@@ -35,7 +38,7 @@ public class RateLimitInterceptor implements HandlerInterceptor {
             return true;
         }
 
-        Bucket bucket = rateLimitingService.resolveBucket(principal.id());
+        Bucket bucket = rateLimiterService.resolveBucket(principal.id());
 
         // Attempt to consume 1 token for the request
         if (bucket.tryConsume(1)) {

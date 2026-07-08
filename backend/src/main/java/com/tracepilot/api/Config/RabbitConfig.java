@@ -5,10 +5,10 @@ import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.QueueBuilder;
 import org.springframework.amqp.core.TopicExchange;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.amqp.support.converter.JacksonJsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class RabbitConfig {
@@ -35,8 +35,16 @@ public class RabbitConfig {
     }
 
     @Bean
+    public Queue auditResultsDlq() {
+        return new Queue("audit.results.dlq", true);
+    }
+
+    @Bean
     public Queue auditResultsQueue() {
-        return new Queue("audit.results", true); // durable
+        return QueueBuilder.durable("audit.results")
+                .withArgument("x-dead-letter-exchange", EXCHANGE_NAME)
+                .withArgument("x-dead-letter-routing-key", "audit.result.dlq")
+                .build();
     }
 
     @Bean
@@ -52,6 +60,11 @@ public class RabbitConfig {
     @Bean
     public Binding auditResultsBinding(Queue auditResultsQueue, TopicExchange tracepilotExchange) {
         return BindingBuilder.bind(auditResultsQueue).to(tracepilotExchange).with("audit.result");
+    }
+
+    @Bean
+    public Binding auditResultsDlqBinding(Queue auditResultsDlq, TopicExchange tracepilotExchange) {
+        return BindingBuilder.bind(auditResultsDlq).to(tracepilotExchange).with("audit.result.dlq");
     }
 
     @Bean

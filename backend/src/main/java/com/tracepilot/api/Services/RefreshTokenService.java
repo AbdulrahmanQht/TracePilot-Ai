@@ -83,6 +83,7 @@ public class RefreshTokenService {
 
         if (token.getRevoked()) {
             log.warn("Refresh token validation failed: token already revoked -> user {}", token.getUser().getId());
+            revokeAllForUser(token.getUser().getId());
             throw new ApiException("Refresh token has been revoked", HttpStatus.UNAUTHORIZED);
         }
 
