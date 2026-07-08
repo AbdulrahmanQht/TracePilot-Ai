@@ -71,6 +71,19 @@ dependencies {
 	annotationProcessor "org.springframework.boot:spring-boot-configuration-processor"
 }
 
+tasks.named('bootRun') {
+    jvmArgs = [
+        "-javaagent:${projectDir}/opentelemetry-javaagent.jar",
+        "-Dotel.service.name=tracepilot-api",
+        "-Dotel.exporter.otlp.endpoint=http://localhost:4317",
+        "-Dotel.traces.exporter=otlp",
+        "-Dotel.traces.sampler=always_on",
+		"-Dotel.javaagent.debug=true",
+		"-Dotel.javaagent.logging=application",
+		"-Dotel.exporter.otlp.protocol=grpc"
+    ]
+}
+
 tasks.named('test') {
 	useJUnitPlatform()
 }

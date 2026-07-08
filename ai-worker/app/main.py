@@ -11,8 +11,12 @@ from starlette.responses import Response
 
 from app.messaging import audit_consumer
 
-from utils.logger import Logger
+from telemetry import setup_tracing
 
+from utils.logger import Logger
+from opentelemetry import trace
+
+tracer = trace.get_tracer(__name__)
 logger = Logger()
 
 
@@ -26,6 +30,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+setup_tracing(app)
 
 
 @app.exception_handler(Exception)
@@ -120,9 +125,10 @@ app.add_middleware(
 @app.get("/ai-worker/v1/health")
 def health_check(request: Request):
     from datetime import datetime, timezone
-
-    return {
-        "status": "healthy",
-        "service": "tracepilot-worker",
-        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-    }
+    
+    with tracer.start_as_current_span("health_check_manual"):
+        return {
+            "status": "healthy",
+            "service": "tracepilot-worker",
+            "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        }

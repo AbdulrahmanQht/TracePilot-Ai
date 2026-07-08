@@ -31,19 +31,23 @@ public class AuditJobDeadLetterListener {
     @Transactional
     public void handleDeadLetteredJob(Message message) {
         String body = new String(message.getBody(), StandardCharsets.UTF_8);
-        UUID auditId = tryExtractAuditId(body);
+        try {
+            UUID auditId = tryExtractAuditId(body);
 
-        if (auditId == null) {
-            log.error("Dead-lettered job could not be attributed to any audit. Raw body: {}", body);
-            return;
+            if (auditId == null) {
+                log.error("Dead-lettered job could not be attributed to any audit. Raw body: {}", body);
+                return;
+            }
+
+            auditRepository.findById(auditId).ifPresentOrElse(audit -> {
+                audit.setStatus(AuditStatus.FAILED);
+                auditRepository.save(audit);
+                log.error("Audit {} marked FAILED after landing in the dead-letter queue.", auditId);
+            }, () -> log.error(
+                    "Dead-lettered job referenced auditId={} but no matching TraceAudit row exists.", auditId));
+        } catch (Exception e) {
+            log.error("Unexpected failure processing dead-lettered job, dropping. Raw body: {}", body, e);
         }
-
-        auditRepository.findById(auditId).ifPresentOrElse(audit -> {
-            audit.setStatus(AuditStatus.FAILED);
-            auditRepository.save(audit);
-            log.error("Audit {} marked FAILED after landing in the dead-letter queue.", auditId);
-        }, () -> log.error(
-                "Dead-lettered job referenced auditId={} but no matching TraceAudit row exists.", auditId));
     }
 
     private UUID tryExtractAuditId(String body) {
