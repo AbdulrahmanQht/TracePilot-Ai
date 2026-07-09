@@ -12,6 +12,7 @@ import com.tracepilot.api.Entities.User;
 import com.tracepilot.api.Enums.OAuthProvider;
 
 public interface UserRepository extends JpaRepository<User, UUID> {
+    
     Optional<User> findByEmail(String email);
 
     Optional<User> findByOAuthProviderAndOAuthId(OAuthProvider oAuthProvider, String oAuthId);

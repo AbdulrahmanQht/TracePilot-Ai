@@ -13,14 +13,18 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 import jakarta.validation.Valid;
 
+import com.tracepilot.api.Security.AuthenticatedUser;
 import com.tracepilot.api.Config.JwtConfig;
 import com.tracepilot.api.DTO.Request.LoginRequest;
 import com.tracepilot.api.DTO.Request.RegisterRequest;
 import com.tracepilot.api.DTO.Request.ForgotPasswordRequest;
 import com.tracepilot.api.DTO.Request.ResetPasswordRequest;
+import com.tracepilot.api.DTO.Request.ResendVerificationRequest;
+import com.tracepilot.api.DTO.Request.ChangePasswordRequest;
 import com.tracepilot.api.DTO.Response.AuthResponse;
 import com.tracepilot.api.Exceptions.ApiException;
 import com.tracepilot.api.Services.AuthService;
@@ -103,6 +107,17 @@ public class AuthController {
         return ResponseEntity.ok().build();
     }
 
+    @PostMapping("/resend-verification")
+    public ResponseEntity<Void> resendVerification(
+            @Valid @RequestBody ResendVerificationRequest request) {
+
+        log.info("Resend verification request received");
+
+        authService.resendVerificationEmail(request.email());
+
+        return ResponseEntity.ok().build();
+    }
+
     @PostMapping("/forgot-password")
     public ResponseEntity<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
         log.info("Forgot-password request received");
@@ -115,6 +130,21 @@ public class AuthController {
         log.info("Reset-password request received");
         authService.resetPassword(request.token(), request.newPassword());
         return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/change-password")
+    public ResponseEntity<Void> changePassword(
+            @Valid @RequestBody ChangePasswordRequest request,
+            @AuthenticationPrincipal AuthenticatedUser principal) {
+
+        log.info("Authenticated password change requested.");
+
+        authService.changePassword(
+                principal,
+                request.currentPassword(),
+                request.newPassword());
+
+        return ResponseEntity.noContent().build();
     }
 
     private ResponseCookie buildCookie(String rawToken) {

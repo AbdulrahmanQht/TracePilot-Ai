@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 Severity = Literal["HIGH", "MEDIUM", "LOW"]
 
+
 class LoopEfficiencyFinding(BaseModel):
     issue_title: str
     severity: Severity
@@ -54,6 +55,12 @@ class ReliabilityTrendReport(BaseModel):
     findings: List[ReliabilityTrendFinding]
 
 
+class SecurityFlags(BaseModel):
+    injection_suspected: bool = False
+    matched_patterns: List[str] = Field(default_factory=list)
+    flagged_upstream: bool = False
+
+
 class TracePilotFullReport(BaseModel):
     overall_score: int = Field(ge=0, le=100)
     loop_efficiency_report: LoopEfficiencyReport
@@ -61,3 +68,4 @@ class TracePilotFullReport(BaseModel):
     reliability_trend_report: ReliabilityTrendReport
     executive_summary: str
     top_three_fixes: List[str]
+    security_flags: SecurityFlags = Field(default_factory=SecurityFlags)

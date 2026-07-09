@@ -1,35 +1,38 @@
 package com.tracepilot.api.Services;
 
 import java.util.List;
-import java.util.UUID;
 import java.util.Optional;
+import java.util.UUID;
 
-import com.tracepilot.api.Enums.AuditStatus;
-import com.tracepilot.api.DTO.Response.ReliabilityResponse;
+import org.springframework.amqp.core.MessageProperties;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.tracepilot.api.Config.RabbitConfig;
 import com.tracepilot.api.DTO.Messages.AuditJobMessage;
 import com.tracepilot.api.DTO.Request.AuditRequest;
 import com.tracepilot.api.DTO.Response.AuditResponse;
-import com.tracepilot.api.Enums.AuditInputSource;
+import com.tracepilot.api.DTO.Response.ReliabilityResponse;
 import com.tracepilot.api.Entities.TraceAudit;
 import com.tracepilot.api.Entities.User;
+import com.tracepilot.api.Enums.AuditInputSource;
+import com.tracepilot.api.Exceptions.ApiException;
 import com.tracepilot.api.Repositories.ReliabilityHistoryRepository;
 import com.tracepilot.api.Repositories.TraceAuditRepository;
 import com.tracepilot.api.Repositories.UserRepository;
 import com.tracepilot.api.Security.AuthenticatedUser;
 import com.tracepilot.api.Util.TraceInputGuard;
 import com.tracepilot.api.Util.TraceSanitizer;
-import com.tracepilot.api.Exceptions.ApiException;
 
+import io.opentelemetry.api.GlobalOpenTelemetry;
+import io.opentelemetry.context.Context;
+import io.opentelemetry.context.propagation.TextMapSetter;
 import lombok.extern.slf4j.Slf4j;
-
-import org.springframework.http.HttpStatus;
-import org.springframework.data.domain.Page;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
@@ -53,6 +56,7 @@ public class AuditService {
         public AuditResponse initiateAudit(AuditRequest request, AuthenticatedUser principal) {
                 TraceInputGuard.validate(request.rawTrace());
                 String safeTrace = TraceSanitizer.redactSecrets(request.rawTrace());
+                boolean suspicious = TraceSanitizer.detectInjectionAttempt(safeTrace);
 
                 String traceHash = TraceInputGuard.computeNormalizedHash(safeTrace);
                 Optional<TraceAudit> cachedAudit = auditRepository.findByUserIdAndTraceHash(principal.id(), traceHash);
@@ -74,7 +78,8 @@ public class AuditService {
                                 request.inputSource() != null ? request.inputSource() : AuditInputSource.PASTED_TEXT);
                 newAudit.setRawTrace(safeTrace);
                 newAudit.setTraceHash(traceHash);
-                TraceAudit savedAudit = auditRepository.save(newAudit);
+                newAudit.setSuspiciousContent(suspicious);
+                TraceAudit savedAudit = auditRepository.saveAndFlush(newAudit);
 
                 Pageable topFive = PageRequest.of(0, 5);
                 List<AuditJobMessage.PriorReliability> priorHistory = historyRepository
@@ -97,12 +102,49 @@ public class AuditService {
                                 savedAudit.getRepoName(),
                                 savedAudit.getAgentTool(),
                                 savedAudit.getInputSource().name(),
+                                suspicious,
                                 priorHistory);
 
                 log.debug("Publishing job {} to RabbitMQ", savedAudit.getId());
-                rabbitTemplate.convertAndSend(RabbitConfig.EXCHANGE_NAME, "audit.job", jobMessage);
+                rabbitTemplate.convertAndSend(RabbitConfig.EXCHANGE_NAME, "audit.job", jobMessage, message -> {
+                        MessageProperties messageProperties = message.getMessageProperties();
+
+                        TextMapSetter<MessageProperties> setter = (carrier, key, value) -> carrier.setHeader(key,
+                                        value);
+                        GlobalOpenTelemetry.getPropagators().getTextMapPropagator()
+                                        .inject(Context.current(), messageProperties, setter);
+
+                        return message;
+                });
 
                 return AuditResponse.from(savedAudit);
+        }
+        
+        
+        @Transactional(readOnly = true)
+        public AuditResponse getExistingByHash(AuditRequest request, AuthenticatedUser principal) {
+                String traceHash = TraceInputGuard
+                                .computeNormalizedHash(TraceSanitizer.redactSecrets(request.rawTrace()));
+                return auditRepository.findByUserIdAndTraceHash(principal.id(), traceHash)
+                                .map(AuditResponse::from)
+                                .orElseThrow(() -> new IllegalStateException(
+                                                "Unique violation but no matching audit found"));
+        }
+
+        @Transactional
+        public void deleteAudit(UUID auditId, AuthenticatedUser principal) {
+                log.info("Delete audit request received for audit ID {} by user {}", auditId, principal.id());
+
+                TraceAudit audit = auditRepository.findById(auditId)
+                                .filter(a -> a.getUser().getId().equals(principal.id()))
+                                .orElseThrow(() -> {
+                                        log.warn("Audit {} not found for user {}", auditId, principal.id());
+                                        return new ApiException("Audit not found", HttpStatus.NOT_FOUND);
+                                });
+
+                auditRepository.delete(audit);
+
+                log.info("Audit {} deleted successfully by user {}", auditId, principal.id());
         }
 
         @Transactional(readOnly = true)
@@ -144,6 +186,22 @@ public class AuditService {
                 audit.setShareToken(java.util.UUID.randomUUID().toString());
                 TraceAudit saved = auditRepository.save(audit);
                 return AuditResponse.from(saved);
+        }
+
+        @Transactional
+        public void revokeShareLink(UUID auditId, AuthenticatedUser principal) {
+                TraceAudit audit = auditRepository.findById(auditId)
+                                .filter(a -> a.getUser().getId().equals(principal.id()))
+                                .orElseThrow(() -> new ApiException("Audit not found", HttpStatus.NOT_FOUND));
+
+                if (!Boolean.TRUE.equals(audit.getIsPublic())) {
+                        return;
+                }
+
+                audit.setIsPublic(false);
+                audit.setShareToken(null);
+
+                auditRepository.save(audit);
         }
 
         @Transactional(readOnly = true)

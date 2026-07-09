@@ -19,6 +19,7 @@ import com.tracepilot.api.Enums.OAuthProvider;
 import com.tracepilot.api.Enums.UserRoles;
 import com.tracepilot.api.Exceptions.ApiException;
 import com.tracepilot.api.Repositories.UserRepository;
+import com.tracepilot.api.Security.AuthenticatedUser;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -291,5 +292,78 @@ public class AuthService {
         refreshTokenService.revokeAllForUser(user.getId());
 
         log.info("Password reset completed for user {}", user.getId());
+    }
+
+    @Transactional
+    public void resendVerificationEmail(String email) {
+        String normalizedEmail = email.trim().toLowerCase();
+
+        User user = userRepository.findByEmail(normalizedEmail).orElse(null);
+
+        if (user == null) {
+            log.warn("Verification resend requested for unknown email.");
+            return;
+        }
+
+        if (user.getIsVerified()) {
+            log.info("Verification resend requested for already verified user {}", user.getId());
+            return;
+        }
+
+        String verificationToken = UUID.randomUUID().toString();
+
+        user.setVerificationToken(verificationToken);
+        user.setVerificationTokenExpiresAt(
+                Instant.now().plus(24, ChronoUnit.HOURS));
+
+        userRepository.save(user);
+
+        try {
+            emailService.sendVerificationEmail(
+                    user.getEmail(),
+                    verificationToken);
+        } catch (MailException e) {
+            log.error("Failed to resend verification email to user {}", user.getId(), e);
+            throw new ApiException(
+                    "Unable to send verification email. Please try again later.",
+                    HttpStatus.SERVICE_UNAVAILABLE);
+        }
+
+        log.info("Verification email resent for user {}", user.getId());
+    }
+
+    @Transactional
+    public void changePassword(
+            AuthenticatedUser principal,
+            String currentPassword,
+            String newPassword) {
+
+        User user = userRepository.findById(principal.id())
+                .orElseThrow(() -> new ApiException("User not found.", HttpStatus.NOT_FOUND));
+
+        if (user.getPasswordHash() == null) {
+            throw new ApiException(
+                    "Password changes are not available for OAuth accounts.",
+                    HttpStatus.BAD_REQUEST);
+        }
+
+        if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+            throw new ApiException(
+                    "Current password is incorrect.",
+                    HttpStatus.UNAUTHORIZED);
+        }
+
+        if (passwordEncoder.matches(newPassword, user.getPasswordHash())) {
+            throw new ApiException(
+                    "New password must be different from the current password.",
+                    HttpStatus.BAD_REQUEST);
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        refreshTokenService.revokeAllForUser(user.getId());
+
+        log.info("Password changed for user {}", user.getId());
     }
 }
