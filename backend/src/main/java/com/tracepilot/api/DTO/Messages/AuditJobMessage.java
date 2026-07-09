@@ -11,7 +11,8 @@ public record AuditJobMessage(
         String repoName,
         String agentTool,
         String inputSource,
-                        
+        boolean suspiciousContent,
+                                        
         List<PriorReliability> priorHistory) {
         public record PriorReliability(
                 int reliabilityScore,

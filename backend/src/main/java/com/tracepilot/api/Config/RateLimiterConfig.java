@@ -1,11 +1,12 @@
 package com.tracepilot.api.Config;
 
-import java.util.UUID;
 import java.time.Duration;
+import java.util.UUID;
 
-import com.tracepilot.api.Services.RateLimiterService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import com.tracepilot.api.Services.RateLimiterService;
 
 @Configuration
 public class RateLimiterConfig {
@@ -18,5 +19,15 @@ public class RateLimiterConfig {
     @Bean
     public RateLimiterService<String> authRateLimiter() {
         return new RateLimiterService<>(5, Duration.ofMinutes(15));
+    }
+
+    @Bean
+    public RateLimiterService<String> refreshRateLimiter() {
+        return new RateLimiterService<>(20, Duration.ofMinutes(15));
+    }
+
+    @Bean
+    public RateLimiterService<String> sharedReportRateLimiter() {
+        return new RateLimiterService<>(60, Duration.ofMinutes(10));
     }
 }

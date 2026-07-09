@@ -56,6 +56,7 @@ public class AuditService {
         public AuditResponse initiateAudit(AuditRequest request, AuthenticatedUser principal) {
                 TraceInputGuard.validate(request.rawTrace());
                 String safeTrace = TraceSanitizer.redactSecrets(request.rawTrace());
+                boolean suspicious = TraceSanitizer.detectInjectionAttempt(safeTrace);
 
                 String traceHash = TraceInputGuard.computeNormalizedHash(safeTrace);
                 Optional<TraceAudit> cachedAudit = auditRepository.findByUserIdAndTraceHash(principal.id(), traceHash);
@@ -77,7 +78,8 @@ public class AuditService {
                                 request.inputSource() != null ? request.inputSource() : AuditInputSource.PASTED_TEXT);
                 newAudit.setRawTrace(safeTrace);
                 newAudit.setTraceHash(traceHash);
-                TraceAudit savedAudit = auditRepository.save(newAudit);
+                newAudit.setSuspiciousContent(suspicious);
+                TraceAudit savedAudit = auditRepository.saveAndFlush(newAudit);
 
                 Pageable topFive = PageRequest.of(0, 5);
                 List<AuditJobMessage.PriorReliability> priorHistory = historyRepository
@@ -100,6 +102,7 @@ public class AuditService {
                                 savedAudit.getRepoName(),
                                 savedAudit.getAgentTool(),
                                 savedAudit.getInputSource().name(),
+                                suspicious,
                                 priorHistory);
 
                 log.debug("Publishing job {} to RabbitMQ", savedAudit.getId());
@@ -115,6 +118,33 @@ public class AuditService {
                 });
 
                 return AuditResponse.from(savedAudit);
+        }
+        
+        
+        @Transactional(readOnly = true)
+        public AuditResponse getExistingByHash(AuditRequest request, AuthenticatedUser principal) {
+                String traceHash = TraceInputGuard
+                                .computeNormalizedHash(TraceSanitizer.redactSecrets(request.rawTrace()));
+                return auditRepository.findByUserIdAndTraceHash(principal.id(), traceHash)
+                                .map(AuditResponse::from)
+                                .orElseThrow(() -> new IllegalStateException(
+                                                "Unique violation but no matching audit found"));
+        }
+
+        @Transactional
+        public void deleteAudit(UUID auditId, AuthenticatedUser principal) {
+                log.info("Delete audit request received for audit ID {} by user {}", auditId, principal.id());
+
+                TraceAudit audit = auditRepository.findById(auditId)
+                                .filter(a -> a.getUser().getId().equals(principal.id()))
+                                .orElseThrow(() -> {
+                                        log.warn("Audit {} not found for user {}", auditId, principal.id());
+                                        return new ApiException("Audit not found", HttpStatus.NOT_FOUND);
+                                });
+
+                auditRepository.delete(audit);
+
+                log.info("Audit {} deleted successfully by user {}", auditId, principal.id());
         }
 
         @Transactional(readOnly = true)
@@ -156,6 +186,22 @@ public class AuditService {
                 audit.setShareToken(java.util.UUID.randomUUID().toString());
                 TraceAudit saved = auditRepository.save(audit);
                 return AuditResponse.from(saved);
+        }
+
+        @Transactional
+        public void revokeShareLink(UUID auditId, AuthenticatedUser principal) {
+                TraceAudit audit = auditRepository.findById(auditId)
+                                .filter(a -> a.getUser().getId().equals(principal.id()))
+                                .orElseThrow(() -> new ApiException("Audit not found", HttpStatus.NOT_FOUND));
+
+                if (!Boolean.TRUE.equals(audit.getIsPublic())) {
+                        return;
+                }
+
+                audit.setIsPublic(false);
+                audit.setShareToken(null);
+
+                auditRepository.save(audit);
         }
 
         @Transactional(readOnly = true)

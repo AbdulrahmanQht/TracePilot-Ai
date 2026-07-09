@@ -95,6 +95,9 @@ public class TraceAudit {
     @Column(name = "completed_at")
     private Instant completedAt;
 
+    @Column(name = "suspicious_content", nullable = false)
+    private Boolean suspiciousContent = false;
+
     @OneToMany(mappedBy = "audit", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<AgentReport> agentReports = new ArrayList<>();
 

@@ -14,6 +14,13 @@ from app.schemas import (
     ReliabilityTrendReport,
     TracePilotFullReport,
 )
+from app.prompt_guard import (
+    wrap_untrusted,
+    UNTRUSTED_DATA_PREAMBLE,
+    screen_for_injection,
+    InjectionScreenResult,
+)
+
 from app.trace_extractor import parse_and_isolate_trace
 from utils.logger import Logger
 
@@ -83,12 +90,14 @@ def _build_loop_task(raw_trace: str) -> Task:
         Analyze this coding-agent execution trace for repeated loops, missing stop conditions,
         unbounded retries, and wasted steps.
 
+        {UNTRUSTED_DATA_PREAMBLE}
+
         {_JSON_ONLY_INSTRUCTION}
         SHAPE:
         {_LOOP_JSON_SHAPE}
 
         FULL TRACE:
-        {raw_trace}
+        {wrap_untrusted(raw_trace, "raw_trace")}
         """,
         agent=loop_efficiency_agent,
         expected_output="A single raw JSON object matching the given shape, nothing else.",
@@ -102,12 +111,14 @@ def _build_blind_task(extracted_evidence: str) -> Task:
         You have NOT been given the original agent's final claims or self-rationale.
         Decide whether the task appears complete, incomplete, unverified, or contradicted.
 
+        {UNTRUSTED_DATA_PREAMBLE}
+
         {_JSON_ONLY_INSTRUCTION}
         SHAPE:
         {_BLIND_JSON_SHAPE}
 
         EXTRACTED EVIDENCE:
-        {extracted_evidence}
+        {wrap_untrusted(extracted_evidence, "extracted_evidence")}
         """,
         agent=blind_outcome_agent,
         expected_output="A single raw JSON object matching the given shape, nothing else.",
@@ -121,18 +132,20 @@ def _build_reliability_task(
         description=f"""
         Analyze the current run and previous reliability history for this repo/tool.
 
+        {UNTRUSTED_DATA_PREAMBLE}
+
         {_JSON_ONLY_INSTRUCTION}
         SHAPE:
         {_RELIABILITY_JSON_SHAPE}
 
         CURRENT EVIDENCE:
-        {extracted_evidence}
+        {wrap_untrusted(extracted_evidence, "extracted_evidence")}
 
         WITHHELD CLAIM SUMMARY:
-        {withheld_claims}
+        {wrap_untrusted(withheld_claims, "withheld_claims")}
 
         PRIOR RELIABILITY HISTORY:
-        {prior_history}
+        {wrap_untrusted(prior_history, "prior_history")}
         """,
         agent=reliability_trend_agent,
         expected_output="A single raw JSON object matching the given shape, nothing else.",
@@ -166,11 +179,13 @@ def _run_single_task_crew(
         raise
 
 
-def run_audit(raw_trace: str, prior_history: str) -> dict:
+def run_audit(
+    raw_trace: str, prior_history: str, upstream_suspicious: bool = False
+) -> dict:
     audit_started = time.perf_counter()
 
     extraction_started = time.perf_counter()
-    evidence, claims = parse_and_isolate_trace(raw_trace, llm)
+    evidence, claims, screening = parse_and_isolate_trace(raw_trace, llm)
     extraction_time_ms = int((time.perf_counter() - extraction_started) * 1000)
 
     extracted_evidence_str = evidence.model_dump_json()
@@ -222,6 +237,12 @@ def run_audit(raw_trace: str, prior_history: str) -> dict:
         / 3
     )
 
+    security_flags = {
+        "injection_suspected": upstream_suspicious or screening.suspicious,
+        "matched_patterns": screening.matched_patterns,
+        "flagged_upstream": upstream_suspicious,
+    }
+
     full_report = TracePilotFullReport(
         overall_score=overall,
         loop_efficiency_report=loop_report,
@@ -229,6 +250,7 @@ def run_audit(raw_trace: str, prior_history: str) -> dict:
         reliability_trend_report=trend_report,
         executive_summary="Generated from structured agent findings.",
         top_three_fixes=[],
+        security_flags=security_flags,
     )
 
     total_time_ms = int((time.perf_counter() - audit_started) * 1000)

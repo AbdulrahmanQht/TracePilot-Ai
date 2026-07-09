@@ -4,6 +4,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -34,6 +35,16 @@ public class AuditController {
         return ResponseEntity.ok(auditService.getAuditById(id, principal));
     }
 
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteAudit(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal AuthenticatedUser principal) {
+
+        auditService.deleteAudit(id, principal);
+
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping
     public ResponseEntity<Page<AuditResponse>> listAudits(
             @AuthenticationPrincipal AuthenticatedUser principal,
@@ -48,6 +59,16 @@ public class AuditController {
         return ResponseEntity.ok(auditService.createShareLink(id, principal));
     }
 
+    @DeleteMapping("/{id}/share")
+    public ResponseEntity<Void> revokeShareLink(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal AuthenticatedUser principal) {
+
+        auditService.revokeShareLink(id, principal);
+
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping
     public ResponseEntity<AuditResponse> submitAudit(
             @Valid @RequestBody AuditRequest request,
@@ -55,9 +76,12 @@ public class AuditController {
 
         log.info("Received trace audit submission from user ID: {}", principal.id());
 
-        AuditResponse createdAudit = auditService.initiateAudit(request, principal);
-
-        return ResponseEntity.status(HttpStatus.ACCEPTED).body(createdAudit);
+        try {
+            return ResponseEntity.ok(auditService.initiateAudit(request, principal));
+        } catch (DataIntegrityViolationException e) {
+            log.info("Race lost on duplicate trace submission for user {}", principal.id());
+            return ResponseEntity.ok(auditService.getExistingByHash(request, principal));
+        }
     }
 
 }

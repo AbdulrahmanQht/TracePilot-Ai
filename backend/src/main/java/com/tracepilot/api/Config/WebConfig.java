@@ -7,16 +7,25 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import com.tracepilot.api.Security.AuthRateLimitInterceptor;
 import com.tracepilot.api.Security.RateLimitInterceptor;
+import com.tracepilot.api.Security.RefreshRateLimitInterceptor;
+import com.tracepilot.api.Security.SharedReportRateLimitInterceptor;
 
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
     private final RateLimitInterceptor rateLimitInterceptor;
     private final AuthRateLimitInterceptor authRateLimitInterceptor;
+    private final RefreshRateLimitInterceptor refreshRateLimitInterceptor;
+    private final SharedReportRateLimitInterceptor sharedReportRateLimitInterceptor;
 
-    public WebConfig(RateLimitInterceptor rateLimitInterceptor, AuthRateLimitInterceptor authRateLimitInterceptor) {
+    public WebConfig(RateLimitInterceptor rateLimitInterceptor,
+            AuthRateLimitInterceptor authRateLimitInterceptor,
+            RefreshRateLimitInterceptor refreshRateLimitInterceptor,
+            SharedReportRateLimitInterceptor sharedReportRateLimitInterceptor) {
         this.rateLimitInterceptor = rateLimitInterceptor;
         this.authRateLimitInterceptor = authRateLimitInterceptor;
+        this.refreshRateLimitInterceptor = refreshRateLimitInterceptor;
+        this.sharedReportRateLimitInterceptor = sharedReportRateLimitInterceptor;
     }
 
     @Override
@@ -26,6 +35,19 @@ public class WebConfig implements WebMvcConfigurer {
                 .addPathPatterns("/api/v1/audits/**");
 
         registry.addInterceptor(authRateLimitInterceptor)
-                .addPathPatterns("/api/v1/auth/login", "/api/v1/auth/register");
+                .addPathPatterns(
+                        "/api/v1/auth/login",
+                        "/api/v1/auth/register",
+                        "/api/v1/auth/forgot-password",
+                        "/api/v1/auth/reset-password",
+                        "/api/v1/auth/verify-email",
+                        "/api/v1/auth/forgot-password",
+                        "/api/v1/auth/resend-verification");
+
+        registry.addInterceptor(refreshRateLimitInterceptor)
+                .addPathPatterns("/api/v1/auth/refresh");
+
+        registry.addInterceptor(sharedReportRateLimitInterceptor)
+                .addPathPatterns("/api/v1/shared/**");
     }
 }

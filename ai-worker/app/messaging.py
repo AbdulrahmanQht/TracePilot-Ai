@@ -115,6 +115,7 @@ class AuditConsumer:
                             run_audit,
                             job.raw_trace,
                             history_prompt,
+                            job.suspicious_content,
                         ),
                         timeout=300,
                     )
