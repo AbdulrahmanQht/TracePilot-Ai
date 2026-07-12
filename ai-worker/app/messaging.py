@@ -16,7 +16,11 @@ from opentelemetry import context, trace
 from opentelemetry.trace import Status, StatusCode
 from opentelemetry.propagate import extract
 
-from app.messaging_schemas import AuditJobMessage, AuditResultMessage
+from app.messaging_schemas import (
+    AuditJobMessage,
+    AuditResultMessage,
+    AuditProgressMessage,
+)
 from utils.logger import Logger
 
 from app.agents import run_audit
@@ -32,6 +36,7 @@ RABBITMQ_PASSWORD = os.getenv("RABBITMQ_PASSWORD", "guest")
 RABBITMQ_VHOST = os.getenv("RABBITMQ_VHOST", "/")
 JOBS_QUEUE = os.getenv("AUDIT_JOBS_QUEUE", "audit.jobs")
 DLQ_QUEUE = os.getenv("AUDIT_JOBS_DLQ", "audit.jobs.dlq")
+PROGRESS_QUEUE = os.getenv("AUDIT_PROGRESS_QUEUE", "audit.progress")
 RESULTS_QUEUE = os.getenv("AUDIT_RESULTS_QUEUE", "audit.results")
 PREFETCH_COUNT = int(os.getenv("AUDIT_WORKER_PREFETCH", "4"))
 
@@ -58,6 +63,8 @@ class AuditConsumer:
         await self._channel.declare_queue(DLQ_QUEUE, durable=True)
 
         self._jobs_queue = await self._channel.get_queue(JOBS_QUEUE)
+
+        await self._channel.get_queue(PROGRESS_QUEUE)
 
         # Declared here so the first publish_result() call never races a missing queue.
         await self._channel.get_queue(RESULTS_QUEUE)
@@ -110,12 +117,27 @@ class AuditConsumer:
                         for h in job.prior_history
                     )
 
+                    loop = asyncio.get_running_loop()
+
+                    def on_progress(agent_type: str, status: str) -> None:
+                        msg = AuditProgressMessage(
+                            audit_id=audit_id,
+                            agent_type=agent_type,
+                            status=status,
+                        )
+
+                        asyncio.run_coroutine_threadsafe(
+                            self._publish_progress(msg),
+                            loop,
+                        )
+
                     report = await asyncio.wait_for(
                         asyncio.to_thread(
                             run_audit,
                             job.raw_trace,
                             history_prompt,
                             job.suspicious_content,
+                            on_progress,
                         ),
                         timeout=300,
                     )
@@ -157,6 +179,21 @@ class AuditConsumer:
             ),
             routing_key=RESULTS_QUEUE,
         )
+
+    async def _publish_progress(self, progress: AuditProgressMessage) -> None:
+        if self._channel is None:
+            return
+        try:
+            await self._channel.default_exchange.publish(
+                aio_pika.Message(
+                    body=progress.model_dump_json(by_alias=True).encode("utf-8"),
+                    content_type="application/json",
+                    delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
+                ),
+                routing_key=PROGRESS_QUEUE,
+            )
+        except Exception as exc:
+            logger.error(f"audit_progress_publish_failed error={str(exc)}")
 
 
 audit_consumer = AuditConsumer()

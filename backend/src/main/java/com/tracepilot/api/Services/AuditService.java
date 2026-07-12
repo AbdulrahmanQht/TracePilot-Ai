@@ -41,15 +41,18 @@ public class AuditService {
         private final UserRepository userRepository;
         private final ReliabilityHistoryRepository historyRepository;
         private final RabbitTemplate rabbitTemplate;
+        private final AuditEmitterRegistry auditEmitterRegistry;
 
         public AuditService(TraceAuditRepository auditRepository,
                         UserRepository userRepository,
                         ReliabilityHistoryRepository historyRepository,
-                        RabbitTemplate rabbitTemplate) {
+                        RabbitTemplate rabbitTemplate,
+                        AuditEmitterRegistry auditEmitterRegistry) {
                 this.auditRepository = auditRepository;
                 this.userRepository = userRepository;
                 this.historyRepository = historyRepository;
                 this.rabbitTemplate = rabbitTemplate;
+                this.auditEmitterRegistry = auditEmitterRegistry;
         }
 
         @Transactional
@@ -119,8 +122,7 @@ public class AuditService {
 
                 return AuditResponse.from(savedAudit);
         }
-        
-        
+
         @Transactional(readOnly = true)
         public AuditResponse getExistingByHash(AuditRequest request, AuthenticatedUser principal) {
                 String traceHash = TraceInputGuard

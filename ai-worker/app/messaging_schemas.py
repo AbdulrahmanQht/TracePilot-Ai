@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from typing import Literal, Optional, List, Dict, Any
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
@@ -33,7 +34,7 @@ class AuditJobMessage(CamelModel):
     raw_trace: str
     repo_name: Optional[str] = None
     agent_tool: Optional[str] = "generic"
-    input_source: Optional[str] = "PASTED_TEXT"
+    input_source: Optional[Literal["PASTED_TEXT", "FILE_UPLOAD", "CI_LOG", "PR_BUNDLE"]]
     prior_history: Optional[list[PriorReliability]] = Field(default_factory=list)
     suspicious_content: bool = False
 
@@ -60,3 +61,10 @@ class AuditResultMessage(CamelModel):
     status: Literal["COMPLETE", "FAILED"]
     report: Optional[AuditReportPayload] = None
     error: Optional[str] = None
+
+class AuditProgressMessage(BaseModel):
+    """Shape of a message published to audit.progress."""
+
+    audit_id: uuid.UUID
+    agent_type: Literal["TRACE_LOOP_EFFICIENCY", "BLIND_OUTCOME_VERIFIER", "RELIABILITY_TREND"]
+    status: Literal["STARTED", "DONE"]
