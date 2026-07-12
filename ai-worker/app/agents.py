@@ -195,8 +195,7 @@ def run_audit(
     extraction_started = time.perf_counter()
     evidence, claims, screening = parse_and_isolate_trace(raw_trace, llm)
     extraction_time_ms = int((time.perf_counter() - extraction_started) * 1000)
-    notify("extraction", "DONE")
-    
+
     extracted_evidence_str = evidence.model_dump_json()
     withheld_claims_str = claims.model_dump_json()
 
@@ -223,9 +222,15 @@ def run_audit(
     results: dict[str, BaseModel] = {}
     durations_ms: dict[str, int] = {}
 
-    notify("loop", "STARTED")
-    notify("blind", "STARTED")
-    notify("reliability", "STARTED")
+    agent_type_names = {
+        "loop": "TRACE_LOOP_EFFICIENCY",
+        "blind": "BLIND_OUTCOME_VERIFIER",
+        "reliability": "RELIABILITY_TREND",
+    }
+
+    notify(agent_type_names["loop"], "STARTED")
+    notify(agent_type_names["blind"], "STARTED")
+    notify(agent_type_names["reliability"], "STARTED")
 
     with ThreadPoolExecutor(max_workers=3) as pool:
         futures = {
@@ -237,7 +242,7 @@ def run_audit(
             report, duration_ms = future.result()
             results[name] = report
             durations_ms[name] = duration_ms
-            notify(name, "DONE")
+            notify(agent_type_names[name], "DONE")
 
     loop_report: LoopEfficiencyReport = results["loop"]
     blind_report: BlindOutcomeReport = results["blind"]

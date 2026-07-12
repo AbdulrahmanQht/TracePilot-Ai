@@ -6,6 +6,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -67,8 +68,9 @@ public class AuditController {
 
         SseEmitter emitter = auditEmitterRegistry.register(id);
 
-        if (current.status() == AuditStatus.COMPLETE || current.status() == AuditStatus.FAILED)
+        if (current.status() == AuditStatus.COMPLETE || current.status() == AuditStatus.FAILED) {
             auditEmitterRegistry.pushAndComplete(id, current);
+        }
 
         return emitter;
     }
@@ -105,7 +107,8 @@ public class AuditController {
         log.info("Received trace audit submission from user ID: {}", principal.id());
 
         try {
-            return ResponseEntity.ok(auditService.initiateAudit(request, principal));
+            return ResponseEntity.status(HttpStatus.ACCEPTED)
+                    .body(auditService.initiateAudit(request, principal));
         } catch (DataIntegrityViolationException e) {
             log.info("Race lost on duplicate trace submission for user {}", principal.id());
             return ResponseEntity.ok(auditService.getExistingByHash(request, principal));

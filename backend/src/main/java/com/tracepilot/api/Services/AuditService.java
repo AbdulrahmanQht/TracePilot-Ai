@@ -41,18 +41,15 @@ public class AuditService {
         private final UserRepository userRepository;
         private final ReliabilityHistoryRepository historyRepository;
         private final RabbitTemplate rabbitTemplate;
-        private final AuditEmitterRegistry auditEmitterRegistry;
 
         public AuditService(TraceAuditRepository auditRepository,
                         UserRepository userRepository,
                         ReliabilityHistoryRepository historyRepository,
-                        RabbitTemplate rabbitTemplate,
-                        AuditEmitterRegistry auditEmitterRegistry) {
+                        RabbitTemplate rabbitTemplate) {
                 this.auditRepository = auditRepository;
                 this.userRepository = userRepository;
                 this.historyRepository = historyRepository;
                 this.rabbitTemplate = rabbitTemplate;
-                this.auditEmitterRegistry = auditEmitterRegistry;
         }
 
         @Transactional
