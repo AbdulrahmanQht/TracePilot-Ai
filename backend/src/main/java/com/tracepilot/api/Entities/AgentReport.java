@@ -2,7 +2,7 @@ package com.tracepilot.api.Entities;
 
 import java.util.UUID;
 import java.time.Instant;
-
+import org.hibernate.annotations.Generated;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Max;
@@ -48,5 +48,6 @@ public class AgentReport {
     private Integer processingTimeMs;
 
     @Column(name = "created_at", insertable = false, updatable = false)
+    @Generated
     private Instant createdAt;
 }

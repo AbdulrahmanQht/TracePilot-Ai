@@ -19,9 +19,6 @@ export class TraceParseError extends Error {
   }
 }
 
-/**
- * Reads a File's raw text content using FileReader, with a configurable encoding.
- */
 export function readFileAsText(file: File, encoding = "UTF-8"): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -31,10 +28,6 @@ export function readFileAsText(file: File, encoding = "UTF-8"): Promise<string> 
   });
 }
 
-/**
- * Determines trace format from filename extension.
- * Falls back to "text" for unrecognized or missing extensions.
- */
 export function detectTraceFormat(filename: string): TraceFormat {
   const ext = filename.split(".").pop()?.toLowerCase();
 
@@ -52,10 +45,6 @@ export function detectTraceFormat(filename: string): TraceFormat {
   }
 }
 
-/**
- * Parses raw text according to the given format.
- * Throws TraceParseError with format/line context on failure.
- */
 export function parseTraceContent(rawText: string, format: TraceFormat): unknown {
   switch (format) {
     case "json":
@@ -110,11 +99,23 @@ function parseYaml(rawText: string): unknown {
   }
 }
 
-/**
- * Convenience wrapper: reads a File and parses it in one call.
- */
 export const MAX_TRACE_LENGTH = 80_000; // matches AuditRequest.rawTrace @Size(max = 80000)
 const MAX_FILE_BYTES = MAX_TRACE_LENGTH * 4; // worst case: 4 bytes/char in UTF-8
+
+const SUPPORTED_EXTENSIONS = new Set([
+  "txt",
+  "log",
+  "json",
+  "jsonl",
+  "ndjson",
+  "yaml",
+  "yml",
+]);
+
+export function isSupportedTraceFile(filename: string): boolean {
+  const ext = filename.split(".").pop()?.toLowerCase();
+  return ext !== undefined && SUPPORTED_EXTENSIONS.has(ext);
+}
 
 export async function parseTraceFile(file: File, encoding = "UTF-8"): Promise<ParsedTrace> {
   if (file.size > MAX_FILE_BYTES) {
@@ -124,11 +125,18 @@ export async function parseTraceFile(file: File, encoding = "UTF-8"): Promise<Pa
     );
   }
 
-  const raw = await readFileAsText(file, encoding);
+  if (!isSupportedTraceFile(file.name)) {
+    throw new TraceParseError(
+      "Unsupported file type. Supported formats: .txt, .log, .json, .jsonl, .ndjson, .yaml, .yml",
+      "text",
+    );
+  }
+
+  const raw = (await readFileAsText(file, encoding)).replace(/^\uFEFF/, "");
 
   if (raw.length > MAX_TRACE_LENGTH) {
     throw new TraceParseError(
-      `Trace exceeds ${MAX_TRACE_LENGTH.toLocaleString()} characters (${raw.length.toLocaleString()} found)`,
+      `Trace exceeds ${MAX_TRACE_LENGTH.toLocaleString()} characters`,
       "text",
     );
   }
@@ -137,8 +145,9 @@ export async function parseTraceFile(file: File, encoding = "UTF-8"): Promise<Pa
     throw new TraceParseError("File appears to be binary, not text", "text");
   }
 
-  const format = detectTraceFormat(file.name);
-  const data = parseTraceContent(raw, format);
-
-  return { format, raw, data };
+  return {
+    format: detectTraceFormat(file.name),
+    raw,
+    data: raw,
+  };
 }

@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { useDropzone } from "react-dropzone";
+import { useDropzone, type FileRejection } from "react-dropzone";
 import Editor, { type Monaco } from '@monaco-editor/react';
 import { Upload, FileText } from "lucide-react";
 import {
@@ -217,8 +217,24 @@ export function TraceEditor({ value, onChange, onParsed, height = "400px" }: Tra
     [onChange, onParsed],
   );
 
+  const handleRejected = useCallback((rejections: FileRejection[]) => {
+  const [rejection] = rejections;
+
+    if (!rejection) return;
+
+    if (rejection.errors.some(e => e.code === "file-invalid-type")) {
+      setError(
+        "Unsupported file type. Supported formats: .txt, .log, .json, .jsonl, .ndjson, .yaml, .yml"
+      );
+      return;
+    }
+
+    setError(rejection.errors[0]?.message ?? "File upload failed.");
+  }, []);
+
   const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
     onDrop: handleDrop,
+    onDropRejected: handleRejected,
     accept: ACCEPTED_EXTENSIONS,
     multiple: false,
     noClick: true, // Prevents clicks on the editor workspace from launching the file opener

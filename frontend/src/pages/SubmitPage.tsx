@@ -96,7 +96,7 @@ export default function SubmitPage() {
         </p>
       </div>
 
-      <div className="px-8 py-7 grid grid-cols-1 xl:grid-cols-3 gap-6 max-w-[1200px]">
+      <div className="px-8 py-7 grid grid-cols-1 xl:grid-cols-3 gap-6">
 
         <form onSubmit={handleSubmit(onSubmit)} className="xl:col-span-2 space-y-5">
 

@@ -125,10 +125,20 @@ app.add_middleware(
 @app.get("/ai-worker/v1/health")
 def health_check(request: Request):
     from datetime import datetime, timezone
-    
+
     with tracer.start_as_current_span("health_check_manual"):
         return {
             "status": "healthy",
             "service": "tracepilot-worker",
             "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         }
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(
+        "app.main:app",
+        host="127.0.0.1",
+        port=8001,
+        reload=False,
+    )
