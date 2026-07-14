@@ -41,6 +41,20 @@
   --sidebar-accent-foreground: #0D0D0D;
   --sidebar-border: #0D0D0D;
   --sidebar-ring: #0D0D0D;
+  --color-forest: #1E3A2F;
+  --color-forest-dark: #162D23;
+  --color-forest-code: #0F1A14;
+  --color-brown: #3B2012;
+  --color-crimson: #8B1A1A;
+  --color-sage: #A8D5A2;
+  --color-parchment: #F4F1EA;
+  --color-card: #FDFAF3;
+  --color-muted: #E5E0D5;
+  --color-ink: #0D0D0D;
+  --color-ink-muted: #5C5348;
+  --color-amber-code: #C8A86A;
+  --color-leaf-code: #C8D8A8;
+  --color-mint-code: #6A9E7A;
 }
 
 .dark {
@@ -119,6 +133,26 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --font-display: 'Archivo Black', sans-serif;
+  --font-body: 'Archivo', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+.shadow-neo {
+  @apply shadow-[4px_4px_0px_#0D0D0D];
+}
+
+.shadow-neo-sm {
+  @apply shadow-[3px_3px_0px_#0D0D0D];
+}
+
+.border-neo {
+  @apply border-2 border-border;
+}
+
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none !important;
 }
 
 @layer base {

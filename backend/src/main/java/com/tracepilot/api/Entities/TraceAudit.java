@@ -53,8 +53,8 @@ public class TraceAudit {
 
     @Column(name = "raw_trace", nullable = false)
     private String rawTrace;
-
-    @Column(name = "trace_hash", nullable = false, length = 64)
+    
+    @Column(name = "trace_hash", nullable = false, length = 64, columnDefinition = "TEXT")
     private String traceHash;
 
     @Column(name = "extracted_evidence", columnDefinition = "jsonb")

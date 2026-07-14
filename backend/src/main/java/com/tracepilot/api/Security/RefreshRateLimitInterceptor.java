@@ -5,9 +5,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
-
 import com.tracepilot.api.Services.RateLimiterService;
-
 import io.github.bucket4j.Bucket;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -28,7 +26,11 @@ public class RefreshRateLimitInterceptor implements HandlerInterceptor {
             @NonNull HttpServletResponse response,
             @NonNull Object handler) throws Exception {
 
-        String clientIp = request.getRemoteAddr();
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            return true;
+        }
+
+        String clientIp = IPResolver.getClientIp(request);
         Bucket bucket = rateLimiterService.resolveBucket(clientIp);
 
         if (bucket.tryConsume(1)) {

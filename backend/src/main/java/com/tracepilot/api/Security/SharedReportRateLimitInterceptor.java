@@ -29,7 +29,11 @@ public class SharedReportRateLimitInterceptor implements HandlerInterceptor {
             @NonNull HttpServletResponse response,
             @NonNull Object handler) throws Exception {
 
-        String clientIp = request.getRemoteAddr();
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            return true;
+        }
+
+        String clientIp = IPResolver.getClientIp(request);
         Bucket bucket = rateLimiterService.resolveBucket(clientIp);
 
         if (bucket.tryConsume(1)) {

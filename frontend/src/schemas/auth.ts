@@ -4,8 +4,7 @@ export const UserSummarySchema = z.object({
   id: z.uuid(),
   email: z.email(),
   displayName: z.string().nullable(),
-  role: z.enum(["ROLE_USER", "ROLE_ADMIN"]),
-  auditCountToday: z.int().nonnegative(),
+  role: z.enum(["USER", "ADMIN"])
 });
 
 export type UserSummary = z.infer<typeof UserSummarySchema>;

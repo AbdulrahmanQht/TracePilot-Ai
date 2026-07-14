@@ -2,18 +2,20 @@ package com.tracepilot.api.Security;
 
 import java.util.UUID;
 
-import com.tracepilot.api.Services.RateLimiterService;
-import io.github.bucket4j.Bucket;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.lang.NonNull;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
-import org.springframework.beans.factory.annotation.Qualifier;
+
+import com.tracepilot.api.Services.RateLimiterService;
+
+import io.github.bucket4j.Bucket;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Component
@@ -29,6 +31,16 @@ public class RateLimitInterceptor implements HandlerInterceptor {
             @NonNull HttpServletRequest request,
             @NonNull HttpServletResponse response,
             @NonNull Object handler) throws Exception {
+
+        // Bypass CORS preflight requests
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            return true;
+        }
+
+        // ONLY apply the daily audit limit to POST requests (submitting traces)
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            return true;
+        }
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
@@ -54,6 +66,6 @@ public class RateLimitInterceptor implements HandlerInterceptor {
         response.setContentType("application/json");
         response.getWriter().write("{\"error\": \"Too Many Requests\", \"message\": \"Daily audit quota exceeded.\"}");
 
-        return false; // Halts further execution within the execution chain
+        return false;
     }
 }
