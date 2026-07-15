@@ -10,7 +10,7 @@ import org.hibernate.type.SqlTypes;
 
 import com.tracepilot.api.Enums.AuditInputSource;
 import com.tracepilot.api.Enums.AuditStatus;
-
+import org.hibernate.annotations.Generated;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -51,7 +51,7 @@ public class TraceAudit {
     @Column(name = "repo_name", length = 150)
     private String repoName;
 
-    @Column(name = "raw_trace", nullable = false)
+    @Column(name = "raw_trace", nullable = false, columnDefinition = "TEXT")
     private String rawTrace;
 
     @Column(name = "trace_hash", nullable = false, length = 64)
@@ -90,6 +90,7 @@ public class TraceAudit {
     private String shareToken;
 
     @Column(name = "created_at", insertable = false, updatable = false)
+    @Generated
     private Instant createdAt;
 
     @Column(name = "completed_at")
@@ -97,6 +98,9 @@ public class TraceAudit {
 
     @Column(name = "suspicious_content", nullable = false)
     private Boolean suspiciousContent = false;
+    
+    @Column(name = "failure_reason", length = 300)
+    private String failureReason;
 
     @OneToMany(mappedBy = "audit", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<AgentReport> agentReports = new ArrayList<>();

@@ -1,7 +1,7 @@
 package com.tracepilot.api.Entities;
 
 import java.util.UUID;
-
+import org.hibernate.annotations.Generated;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Enumerated;
@@ -48,5 +48,6 @@ public class RefreshToken {
     private Boolean revoked = false;
 
     @Column(name = "created_at", insertable = false, updatable = false)
+    @Generated
     private Instant createdAt;
 }

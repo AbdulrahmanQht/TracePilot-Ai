@@ -12,11 +12,14 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.dao.DataIntegrityViolationException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import com.tracepilot.api.DTO.Response.AuditResponse;
 import com.tracepilot.api.Entities.AgentReport;
 import com.tracepilot.api.Entities.ReliabilityHistory;
 import com.tracepilot.api.Entities.TraceAudit;
 import com.tracepilot.api.Enums.AuditStatus;
 import com.tracepilot.api.Enums.TypesOfAgent;
+import com.tracepilot.api.Services.AuditEmitterRegistry;
 import com.tracepilot.api.Repositories.AgentReportRepository;
 import com.tracepilot.api.Repositories.ReliabilityHistoryRepository;
 import com.tracepilot.api.Repositories.TraceAuditRepository;
@@ -30,15 +33,18 @@ public class AuditResultListener {
     private final TraceAuditRepository auditRepository;
     private final AgentReportRepository agentReportRepository;
     private final ReliabilityHistoryRepository reliabilityHistoryRepository;
+    private final AuditEmitterRegistry auditEmitterRegistry;
     private final ObjectMapper objectMapper;
 
     public AuditResultListener(TraceAuditRepository auditRepository,
             AgentReportRepository agentReportRepository,
             ReliabilityHistoryRepository reliabilityHistoryRepository,
+            AuditEmitterRegistry auditEmitterRegistry,
             ObjectMapper objectMapper) {
         this.auditRepository = auditRepository;
         this.agentReportRepository = agentReportRepository;
         this.reliabilityHistoryRepository = reliabilityHistoryRepository;
+        this.auditEmitterRegistry = auditEmitterRegistry;
         this.objectMapper = objectMapper;
     }
 
@@ -76,8 +82,11 @@ public class AuditResultListener {
         String status = root.path("status").asText("");
 
         if ("FAILED".equals(status)) {
+            String workerError = root.path("error").asText("Worker reported failure.");
             audit.setStatus(AuditStatus.FAILED);
+            audit.setFailureReason(workerError);
             auditRepository.save(audit);
+            auditEmitterRegistry.pushAndComplete(auditId, AuditResponse.from(audit));
             log.error("Audit {} marked FAILED. Worker error: {}", auditId, root.path("error").asText(""));
             return;
         }
@@ -129,6 +138,7 @@ public class AuditResultListener {
         audit.setStatus(AuditStatus.COMPLETE);
         audit.setCompletedAt(Instant.now());
         auditRepository.save(audit);
+        auditEmitterRegistry.pushAndComplete(audit.getId(), AuditResponse.from(audit));
 
         log.info("Audit {} completed and persisted.", audit.getId());
     }

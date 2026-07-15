@@ -2,6 +2,7 @@ import json
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from collections.abc import Callable
 
 from dotenv import load_dotenv
 from crewai import LLM, Agent, Task, Crew, Process
@@ -180,9 +181,16 @@ def _run_single_task_crew(
 
 
 def run_audit(
-    raw_trace: str, prior_history: str, upstream_suspicious: bool = False
+    raw_trace: str,
+    prior_history: str,
+    upstream_suspicious: bool = False,
+    on_progress: Callable[[str, str], None] | None = None,
 ) -> dict:
     audit_started = time.perf_counter()
+
+    def notify(agent_type: str, status: str) -> None:
+        if on_progress:
+            on_progress(agent_type, status)
 
     extraction_started = time.perf_counter()
     evidence, claims, screening = parse_and_isolate_trace(raw_trace, llm)
@@ -213,6 +221,17 @@ def run_audit(
 
     results: dict[str, BaseModel] = {}
     durations_ms: dict[str, int] = {}
+
+    agent_type_names = {
+        "loop": "TRACE_LOOP_EFFICIENCY",
+        "blind": "BLIND_OUTCOME_VERIFIER",
+        "reliability": "RELIABILITY_TREND",
+    }
+
+    notify(agent_type_names["loop"], "STARTED")
+    notify(agent_type_names["blind"], "STARTED")
+    notify(agent_type_names["reliability"], "STARTED")
+
     with ThreadPoolExecutor(max_workers=3) as pool:
         futures = {
             pool.submit(_run_single_task_crew, agent, task, model): name
@@ -223,6 +242,7 @@ def run_audit(
             report, duration_ms = future.result()
             results[name] = report
             durations_ms[name] = duration_ms
+            notify(agent_type_names[name], "DONE")
 
     loop_report: LoopEfficiencyReport = results["loop"]
     blind_report: BlindOutcomeReport = results["blind"]

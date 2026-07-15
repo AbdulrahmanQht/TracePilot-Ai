@@ -28,7 +28,14 @@ public class AuthRateLimitInterceptor implements HandlerInterceptor {
             @NonNull HttpServletResponse response,
             @NonNull Object handler) throws Exception {
 
-        String clientIp = request.getRemoteAddr();
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            return true;
+        }
+
+        String clientIp = IPResolver.getClientIp(request);
+        if (IPResolver.isLocalhost(clientIp)) {
+            return true;
+        }
         Bucket bucket = rateLimiterService.resolveBucket(clientIp);
 
         if (bucket.tryConsume(1)) {

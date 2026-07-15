@@ -5,7 +5,8 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-
+import org.hibernate.annotations.Generated;
+import org.hibernate.generator.EventType;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -70,9 +71,11 @@ public class User {
     private LocalDate lastAuditDate;
 
     @Column(name = "created_at", insertable = false, updatable = false)
+    @Generated
     private Instant createdAt;
 
     @Column(name = "updated_at", insertable = false, updatable = false)
+    @Generated(event = { EventType.INSERT, EventType.UPDATE })
     private Instant updatedAt;
 
     @Column(name = "verification_token", length = 255)
@@ -95,4 +98,8 @@ public class User {
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<ReliabilityHistory> reliabilityHistory = new ArrayList<>();
+
+    public boolean isAuditCountStale(LocalDate today) {
+        return this.lastAuditDate == null || this.lastAuditDate.isBefore(today);
+    }
 }

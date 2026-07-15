@@ -77,7 +77,7 @@ tasks.named('bootRun') {
         "-Dotel.exporter.otlp.endpoint=http://localhost:4317",
         "-Dotel.traces.exporter=otlp",
         "-Dotel.traces.sampler=always_on",
-		"-Dotel.javaagent.debug=true",
+		"-Dotel.javaagent.debug=false",
 		"-Dotel.javaagent.logging=application",
 		"-Dotel.exporter.otlp.protocol=grpc"
     ]

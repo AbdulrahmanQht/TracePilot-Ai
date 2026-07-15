@@ -1,12 +1,14 @@
 package com.tracepilot.api.Services;
 
+import java.time.LocalDate;
+
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.tracepilot.api.DTO.Response.UserProfileResponse;
 import com.tracepilot.api.DTO.Request.UpdateUserRequest;
+import com.tracepilot.api.DTO.Response.UserProfileResponse;
 import com.tracepilot.api.Entities.User;
 import com.tracepilot.api.Exceptions.ApiException;
 import com.tracepilot.api.Repositories.UserRepository;
@@ -34,6 +36,8 @@ public class UserService {
                         return new ApiException("User not found.", HttpStatus.NOT_FOUND);
                     });
 
+            syncDailyAuditCount(user);
+
             log.info("Successfully retrieved profile for user ID: {}", principal.id());
 
             return new UserProfileResponse(
@@ -48,6 +52,22 @@ public class UserService {
         } catch (DataAccessException ex) {
             log.error("Failed to retrieve profile for user ID: {}", principal.id(), ex);
             throw ex;
+        }
+    }
+
+    private void syncDailyAuditCount(User user) {
+        LocalDate today = LocalDate.now();
+
+        if (user.isAuditCountStale(today)) {
+            log.info(
+                    "Resetting daily audit count for user ID: {} (previous last_audit_date: {}, previous count: {})",
+                    user.getId(), user.getLastAuditDate(), user.getAuditCountToday());
+            user.setAuditCountToday(0);
+            user.setLastAuditDate(today);
+            userRepository.save(user);
+        } else {
+            log.debug("Daily audit count still current for user ID: {} (last_audit_date: {})",
+                    user.getId(), user.getLastAuditDate());
         }
     }
 

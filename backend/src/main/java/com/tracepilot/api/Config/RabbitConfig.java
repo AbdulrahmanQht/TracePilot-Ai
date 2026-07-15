@@ -36,6 +36,17 @@ public class RabbitConfig {
     }
 
     @Bean
+    public Queue auditProgressQueue() {
+        return QueueBuilder.durable("audit.progress").withArgument("x-message-ttl", 60000).build();
+        // no DLQ — losing a progress ping isn't worth retry
+    }
+
+    @Bean
+    public Binding auditProgressBinding(Queue auditProgressQueue, TopicExchange tracepilotExchange) {
+        return BindingBuilder.bind(auditProgressQueue).to(tracepilotExchange).with("audit.progress");
+    }
+
+    @Bean
     public Queue auditResultsDlq() {
         return new Queue("audit.results.dlq", true);
     }

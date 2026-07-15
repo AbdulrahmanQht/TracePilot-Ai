@@ -3,6 +3,7 @@ package com.tracepilot.api.Messaging;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -43,12 +44,15 @@ class AuditResultListenerTest {
     private AgentReportRepository agentReportRepository;
     @Mock
     private ReliabilityHistoryRepository reliabilityHistoryRepository;
+    @Mock
+    private com.tracepilot.api.Services.AuditEmitterRegistry auditEmitterRegistry;
 
     private AuditResultListener listener;
 
     @BeforeEach
     void setUp() {
         listener = new AuditResultListener(auditRepository, agentReportRepository, reliabilityHistoryRepository,
+                auditEmitterRegistry,
                 new ObjectMapper());
     }
 
@@ -123,6 +127,7 @@ class AuditResultListenerTest {
 
         verify(auditRepository, never()).save(any());
         verify(agentReportRepository, never()).saveAndFlush(any());
+        verify(auditEmitterRegistry, never()).pushAndComplete(any(), any());
     }
 
     @Test
@@ -135,6 +140,7 @@ class AuditResultListenerTest {
         listener.handleAuditResult(messageWithBody("{\"auditId\": \"" + auditId + "\", \"status\": \"COMPLETE\"}"));
 
         verify(auditRepository, never()).save(any());
+        verify(auditEmitterRegistry, never()).pushAndComplete(any(), any());
     }
 
     @Test
@@ -149,6 +155,10 @@ class AuditResultListenerTest {
         assertThat(audit.getStatus()).isEqualTo(AuditStatus.FAILED);
         verify(auditRepository).save(audit);
         verify(agentReportRepository, never()).saveAndFlush(any());
+        ArgumentCaptor<com.tracepilot.api.DTO.Response.AuditResponse> pushCaptor = ArgumentCaptor
+                .forClass(com.tracepilot.api.DTO.Response.AuditResponse.class);
+        verify(auditEmitterRegistry).pushAndComplete(eq(auditId), pushCaptor.capture());
+        assertThat(pushCaptor.getValue().status()).isEqualTo(AuditStatus.FAILED);
     }
 
     @Test
@@ -198,6 +208,11 @@ class AuditResultListenerTest {
         assertThat(audit.getOverallScore()).isEqualTo(82);
         assertThat(audit.getCompletedAt()).isNotNull();
         verify(auditRepository).save(audit);
+        ArgumentCaptor<com.tracepilot.api.DTO.Response.AuditResponse> pushCaptor = ArgumentCaptor
+                .forClass(com.tracepilot.api.DTO.Response.AuditResponse.class);
+        verify(auditEmitterRegistry).pushAndComplete(eq(auditId), pushCaptor.capture());
+        assertThat(pushCaptor.getValue().status()).isEqualTo(AuditStatus.COMPLETE);
+        assertThat(pushCaptor.getValue().overallScore()).isEqualTo(82);
     }
 
     @Test

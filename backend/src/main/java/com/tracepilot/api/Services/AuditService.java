@@ -21,6 +21,7 @@ import com.tracepilot.api.DTO.Response.ReliabilityResponse;
 import com.tracepilot.api.Entities.TraceAudit;
 import com.tracepilot.api.Entities.User;
 import com.tracepilot.api.Enums.AuditInputSource;
+import com.tracepilot.api.Enums.AuditStatus;
 import com.tracepilot.api.Exceptions.ApiException;
 import com.tracepilot.api.Repositories.ReliabilityHistoryRepository;
 import com.tracepilot.api.Repositories.TraceAuditRepository;
@@ -37,6 +38,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Service
 public class AuditService {
+        private static final int DAILY_AUDIT_LIMIT = 10;
         private final TraceAuditRepository auditRepository;
         private final UserRepository userRepository;
         private final ReliabilityHistoryRepository historyRepository;
@@ -54,20 +56,46 @@ public class AuditService {
 
         @Transactional
         public AuditResponse initiateAudit(AuditRequest request, AuthenticatedUser principal) {
+                log.info("=== Initiating audit ===");
+                log.info("User ID: {}", principal.id());
+                log.info("Title: {}", request.title());
+                log.info("Repo: {}", request.repoName());
+                log.info("Agent: {}", request.agentTool());
+                log.info("Input source: {}", request.inputSource());
+
                 TraceInputGuard.validate(request.rawTrace());
+                log.info("Trace validation passed.");
+
                 String safeTrace = TraceSanitizer.redactSecrets(request.rawTrace());
                 boolean suspicious = TraceSanitizer.detectInjectionAttempt(safeTrace);
-
                 String traceHash = TraceInputGuard.computeNormalizedHash(safeTrace);
+
+                log.info("Trace sanitized.");
+                log.info("Suspicious: {}", suspicious);
+                log.info("Trace hash: {}", traceHash);
+
+                log.info("Checking for cached audit...");
                 Optional<TraceAudit> cachedAudit = auditRepository.findByUserIdAndTraceHash(principal.id(), traceHash);
 
                 if (cachedAudit.isPresent()) {
-                        log.info("Cache hit for user {} on trace hash {}", principal.id(), traceHash);
+                        log.info("Cache hit. Audit ID: {}", cachedAudit.get().getId());
                         return AuditResponse.from(cachedAudit.get());
                 }
 
+                log.info("No cached audit found.");
+
+                int updated = userRepository.incrementAuditCountIfUnderLimit(principal.id(), DAILY_AUDIT_LIMIT);
+                if (updated == 0) {
+                        log.warn("User {} exceeded daily audit limit of {}", principal.id(), DAILY_AUDIT_LIMIT);
+                        throw new ApiException("Daily audit limit reached. Try again tomorrow.",
+                                        HttpStatus.TOO_MANY_REQUESTS);
+                }
+                log.info("Daily audit count incremented for user {}", principal.id());
+
                 User user = userRepository.findById(principal.id())
                                 .orElseThrow(() -> new IllegalStateException("User not found"));
+
+                log.info("Loaded user: {}", user.getId());
 
                 var newAudit = new TraceAudit();
                 newAudit.setUser(user);
@@ -75,16 +103,47 @@ public class AuditService {
                 newAudit.setRepoName(request.repoName());
                 newAudit.setAgentTool(request.agentTool() != null ? request.agentTool() : "GENERIC");
                 newAudit.setInputSource(
-                                request.inputSource() != null ? request.inputSource() : AuditInputSource.PASTED_TEXT);
+                                request.inputSource() != null
+                                                ? request.inputSource()
+                                                : AuditInputSource.PASTED_TEXT);
                 newAudit.setRawTrace(safeTrace);
                 newAudit.setTraceHash(traceHash);
                 newAudit.setSuspiciousContent(suspicious);
-                TraceAudit savedAudit = auditRepository.saveAndFlush(newAudit);
+
+                log.info("About to save audit...");
+                log.info("userId={}", user.getId());
+                log.info("traceHash={}", traceHash);
+
+                TraceAudit savedAudit;
+                try {
+                        savedAudit = auditRepository.saveAndFlush(newAudit);
+                        log.info("Save successful. Audit ID: {}", savedAudit.getId());
+                } catch (Exception e) {
+                        log.error("saveAndFlush() failed!", e);
+
+                        if (e instanceof org.springframework.dao.DataIntegrityViolationException dive) {
+                                log.error("Most specific cause: {}", dive.getMostSpecificCause().getMessage());
+                        }
+
+                        throw e;
+                }
+
+                log.info("Reloading audit...");
+                savedAudit = auditRepository.findById(savedAudit.getId())
+                                .orElseThrow();
+
+                log.info("Reload successful.");
+                log.info("Created at: {}", savedAudit.getCreatedAt());
 
                 Pageable topFive = PageRequest.of(0, 5);
+
+                log.info("Loading prior reliability history...");
                 List<AuditJobMessage.PriorReliability> priorHistory = historyRepository
                                 .findByUserIdAndRepoNameAndAgentToolOrderByRecordedAtDesc(
-                                                user.getId(), request.repoName(), request.agentTool(), topFive)
+                                                user.getId(),
+                                                request.repoName(),
+                                                request.agentTool(),
+                                                topFive)
                                 .stream()
                                 .map(history -> new AuditJobMessage.PriorReliability(
                                                 history.getReliabilityScore(),
@@ -92,7 +151,7 @@ public class AuditService {
                                                 history.getRecordedAt().toString()))
                                 .toList();
 
-                userRepository.incrementAuditCount(user.getId());
+                log.info("Prior history count: {}", priorHistory.size());
 
                 AuditJobMessage jobMessage = new AuditJobMessage(
                                 savedAudit.getId(),
@@ -105,30 +164,115 @@ public class AuditService {
                                 suspicious,
                                 priorHistory);
 
-                log.debug("Publishing job {} to RabbitMQ", savedAudit.getId());
-                rabbitTemplate.convertAndSend(RabbitConfig.EXCHANGE_NAME, "audit.job", jobMessage, message -> {
-                        MessageProperties messageProperties = message.getMessageProperties();
+                log.info("Publishing audit {} to RabbitMQ...", savedAudit.getId());
 
-                        TextMapSetter<MessageProperties> setter = (carrier, key, value) -> carrier.setHeader(key,
-                                        value);
-                        GlobalOpenTelemetry.getPropagators().getTextMapPropagator()
-                                        .inject(Context.current(), messageProperties, setter);
+                publishJob(jobMessage, savedAudit.getId());
 
-                        return message;
-                });
+                log.info("=== Audit initiation complete ===");
 
                 return AuditResponse.from(savedAudit);
         }
-        
-        
+
+        private void publishJob(AuditJobMessage jobMessage, UUID auditId) {
+                rabbitTemplate.convertAndSend(
+                                RabbitConfig.EXCHANGE_NAME,
+                                "audit.job",
+                                jobMessage,
+                                message -> {
+                                        MessageProperties props = message.getMessageProperties();
+
+                                        TextMapSetter<MessageProperties> setter = (carrier, key, value) -> carrier
+                                                        .setHeader(key, value);
+
+                                        GlobalOpenTelemetry.getPropagators()
+                                                        .getTextMapPropagator()
+                                                        .inject(Context.current(), props, setter);
+
+                                        return message;
+                                });
+
+                log.info("RabbitMQ publish complete for audit {}.", auditId);
+        }
+
+        @Transactional
+        public AuditResponse retryAudit(UUID auditId, AuthenticatedUser principal) {
+                TraceAudit audit = auditRepository.findById(auditId)
+                                .orElseThrow(() -> new ApiException("Audit not found", HttpStatus.NOT_FOUND));
+
+                if (!audit.getUser().getId().equals(principal.id())) {
+                        throw new ApiException("Audit not found", HttpStatus.NOT_FOUND);
+                }
+
+                if (audit.getStatus() != AuditStatus.FAILED) {
+                        throw new ApiException(
+                                        "Only a FAILED audit can be retried (current status: " + audit.getStatus()
+                                                        + ")",
+                                        HttpStatus.CONFLICT);
+                }
+
+                log.info("Retrying audit {}...", auditId);
+
+                // Clear out any partial results from the prior attempt.
+                audit.getAgentReports().clear();
+                audit.setOverallScore(null);
+                audit.setExtractedEvidence(null);
+                audit.setWithheldClaims(null);
+                audit.setCompletedAt(null);
+                audit.setFailureReason(null);
+                audit.setStatus(AuditStatus.PENDING);
+                TraceAudit savedAudit = auditRepository.saveAndFlush(audit);
+
+                Pageable topFive = PageRequest.of(0, 5);
+                List<AuditJobMessage.PriorReliability> priorHistory = historyRepository
+                                .findByUserIdAndRepoNameAndAgentToolOrderByRecordedAtDesc(
+                                                audit.getUser().getId(),
+                                                audit.getRepoName(),
+                                                audit.getAgentTool(),
+                                                topFive)
+                                .stream()
+                                .map(history -> new AuditJobMessage.PriorReliability(
+                                                history.getReliabilityScore(),
+                                                history.getSignalSummary().toString(),
+                                                history.getRecordedAt().toString()))
+                                .toList();
+
+                AuditJobMessage jobMessage = new AuditJobMessage(
+                                savedAudit.getId(),
+                                audit.getUser().getId(),
+                                savedAudit.getTitle(),
+                                savedAudit.getRawTrace(),
+                                savedAudit.getRepoName(),
+                                savedAudit.getAgentTool(),
+                                savedAudit.getInputSource().name(),
+                                savedAudit.getSuspiciousContent(),
+                                priorHistory);
+
+                publishJob(jobMessage, savedAudit.getId());
+
+                return AuditResponse.from(savedAudit);
+        }
+
         @Transactional(readOnly = true)
         public AuditResponse getExistingByHash(AuditRequest request, AuthenticatedUser principal) {
-                String traceHash = TraceInputGuard
-                                .computeNormalizedHash(TraceSanitizer.redactSecrets(request.rawTrace()));
-                return auditRepository.findByUserIdAndTraceHash(principal.id(), traceHash)
-                                .map(AuditResponse::from)
-                                .orElseThrow(() -> new IllegalStateException(
-                                                "Unique violation but no matching audit found"));
+                String safeTrace = TraceSanitizer.redactSecrets(request.rawTrace());
+                String traceHash = TraceInputGuard.computeNormalizedHash(safeTrace);
+
+                log.info("Looking up existing audit");
+                log.info("User ID: {}", principal.id());
+                log.info("Trace hash: {}", traceHash);
+
+                Optional<TraceAudit> existing = auditRepository.findByUserIdAndTraceHash(principal.id(), traceHash);
+
+                if (existing.isPresent()) {
+                        log.info("Existing audit found. Audit ID: {}", existing.get().getId());
+                        return AuditResponse.from(existing.get());
+                }
+
+                log.error("No audit found for userId={} and traceHash={}",
+                                principal.id(), traceHash);
+
+                throw new IllegalStateException(
+                                "Unique violation but no matching audit found");
         }
 
         @Transactional

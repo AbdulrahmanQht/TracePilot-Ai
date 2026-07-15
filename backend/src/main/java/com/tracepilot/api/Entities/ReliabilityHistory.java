@@ -5,7 +5,8 @@ import java.util.UUID;
 
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
-
+import org.hibernate.annotations.Generated;
+import org.hibernate.generator.EventType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -53,5 +54,6 @@ public class ReliabilityHistory {
     private String signalSummary;
 
     @Column(name = "recorded_at", nullable = false)
+    @Generated
     private Instant recordedAt;
 }
