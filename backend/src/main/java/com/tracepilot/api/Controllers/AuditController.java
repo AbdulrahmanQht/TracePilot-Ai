@@ -99,6 +99,13 @@ public class AuditController {
         return ResponseEntity.noContent().build();
     }
 
+    @PostMapping("/{id}/retry")
+    public ResponseEntity<AuditResponse> retryAudit(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal AuthenticatedUser principal) {
+        return ResponseEntity.ok(auditService.retryAudit(id, principal));
+    }
+
     @PostMapping
     public ResponseEntity<AuditResponse> submitAudit(
             @Valid @RequestBody AuditRequest request,

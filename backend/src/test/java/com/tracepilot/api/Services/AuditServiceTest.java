@@ -9,6 +9,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.anyInt;
 
 import java.util.List;
 import java.util.Optional;
@@ -128,6 +129,7 @@ class AuditServiceTest {
                 AuditInputSource.PASTED_TEXT);
 
         when(auditRepository.findByUserIdAndTraceHash(eq(principal.id()), anyString())).thenReturn(Optional.empty());
+        when(userRepository.incrementAuditCountIfUnderLimit(eq(principal.id()), anyInt())).thenReturn(1);
         when(userRepository.findById(principal.id())).thenReturn(Optional.of(user));
         mockRepositorySave();
 
@@ -139,8 +141,26 @@ class AuditServiceTest {
 
         assertThat(response.title()).isEqualTo("Title");
         assertThat(response.repoName()).isEqualTo("tracepilot");
-        verify(userRepository).incrementAuditCount(user.getId());
+        verify(userRepository).incrementAuditCountIfUnderLimit(eq(principal.id()), anyInt());
         verify(rabbitTemplate).convertAndSend(eq(RabbitConfig.EXCHANGE_NAME), eq("audit.job"), any(), any(
+                org.springframework.amqp.core.MessagePostProcessor.class));
+    }
+
+    @Test
+    void initiateAudit_throwsTooManyRequests_whenDailyLimitExceeded() {
+        AuditRequest request = new AuditRequest("some trace content", "Title", "tracepilot", "GENERIC",
+                AuditInputSource.PASTED_TEXT);
+
+        when(auditRepository.findByUserIdAndTraceHash(eq(principal.id()), anyString())).thenReturn(Optional.empty());
+        when(userRepository.incrementAuditCountIfUnderLimit(eq(principal.id()), anyInt())).thenReturn(0);
+
+        assertThatThrownBy(() -> auditService.initiateAudit(request, principal))
+                .isInstanceOf(ApiException.class)
+                .extracting(ex -> ((ApiException) ex).getStatus())
+                .isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+
+        verify(auditRepository, never()).saveAndFlush(any());
+        verify(rabbitTemplate, never()).convertAndSend(anyString(), anyString(), any(), any(
                 org.springframework.amqp.core.MessagePostProcessor.class));
     }
 

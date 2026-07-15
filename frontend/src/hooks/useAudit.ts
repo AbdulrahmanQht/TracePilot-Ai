@@ -1,7 +1,7 @@
 import { useQuery, useMutation, type UseQueryOptions, type UseMutationOptions } from "@tanstack/react-query";
 import {
   submitAudit, getAudit, listAudits, deleteAudit,
-  shareAudit, revokeShareLink, getSharedReport
+  shareAudit, revokeShareLink, getSharedReport, retryAudit
 } from "../api/audits";
 import type { AuditResponse } from "../schemas/audit";
 import type { AuditRequest } from "../schemas/audit-request";
@@ -70,4 +70,8 @@ export function useShareAudit(options?: UseMutationOptions<AuditResponse, ApiErr
 
 export function useRevokeShareLink(options?: UseMutationOptions<void, ApiError, string>) {
   return useMutation({ mutationFn: revokeShareLink, ...options });
+}
+
+export function useRetryAudit(options?: UseMutationOptions<AuditResponse, ApiError, string>) {
+  return useMutation({ mutationFn: retryAudit, ...options });
 }

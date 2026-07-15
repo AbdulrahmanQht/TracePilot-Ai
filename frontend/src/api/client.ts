@@ -17,8 +17,24 @@ export const apiClient = axios.create({
   withCredentials: true, // required: refresh token travels as an httpOnly cookie
 });
 
+const PUBLIC_URL_PATTERNS = [
+  /^\/shared\//,
+  /^\/auth\/login$/,
+  /^\/auth\/register$/,
+  /^\/auth\/refresh$/,
+  /^\/auth\/forgot-password$/,
+  /^\/auth\/reset-password$/,
+  /^\/auth\/verify-email$/,
+  /^\/auth\/resend-verification$/,
+];
+ 
+function isPublicRoute(url: string | undefined): boolean {
+  if (!url) return false;
+  return PUBLIC_URL_PATTERNS.some((p) => p.test(url));
+}
+
 apiClient.interceptors.request.use((config) => {
-  if (accessToken) {
+  if (accessToken && !isPublicRoute(config.url)) {
     config.headers.Authorization = `Bearer ${accessToken}`;
   }
   return config;
@@ -47,10 +63,9 @@ apiClient.interceptors.response.use(
   (res) => res,
   async (error: AxiosError) => {
     const original = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
-
-    // Don't try to refresh the refresh call itself, or unauthenticated endpoints.
-    const isAuthRoute = original?.url?.includes("/auth/");
-    if (error.response?.status === 401 && !original._retry && !isAuthRoute) {
+    
+    const isPublic = isPublicRoute(original?.url);
+    if (error.response?.status === 401 && !original._retry && !isPublic) {
       original._retry = true;
       try {
         refreshPromise ??= refreshAccessToken().finally(() => {
@@ -59,12 +74,18 @@ apiClient.interceptors.response.use(
         const token = await refreshPromise;
         original.headers.Authorization = `Bearer ${token}`;
         return apiClient(original);
-      } catch {
-        setAccessToken(null);
-        onUnauthorized?.();
-      }
-    }
+      } catch (err) {
+          const refreshError = err as AxiosError;
 
+          if (refreshError.response?.status === 401) {
+            setAccessToken(null);
+            onUnauthorized?.();
+          }
+
+          throw refreshError;
+        }
+    }
+ 
     return Promise.reject(parseApiError(error.response?.data));
   }
 );

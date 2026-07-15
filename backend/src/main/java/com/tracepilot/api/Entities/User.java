@@ -98,4 +98,8 @@ public class User {
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<ReliabilityHistory> reliabilityHistory = new ArrayList<>();
+
+    public boolean isAuditCountStale(LocalDate today) {
+        return this.lastAuditDate == null || this.lastAuditDate.isBefore(today);
+    }
 }

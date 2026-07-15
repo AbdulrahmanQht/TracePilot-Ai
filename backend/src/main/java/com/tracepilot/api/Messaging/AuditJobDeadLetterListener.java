@@ -41,6 +41,7 @@ public class AuditJobDeadLetterListener {
 
             auditRepository.findById(auditId).ifPresentOrElse(audit -> {
                 audit.setStatus(AuditStatus.FAILED);
+                audit.setFailureReason("Job failed after repeated processing attempts and was dead-lettered.");
                 auditRepository.save(audit);
                 log.error("Audit {} marked FAILED after landing in the dead-letter queue.", auditId);
             }, () -> log.error(

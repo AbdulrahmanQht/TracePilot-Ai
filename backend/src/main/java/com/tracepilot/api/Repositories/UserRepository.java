@@ -26,6 +26,19 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     boolean existsByOAuthProviderAndOAuthId(OAuthProvider oAuthProvider, String oAuthId);
 
     @Modifying
-    @Query("UPDATE User u SET u.auditCountToday = u.auditCountToday + 1 WHERE u.id = :id")
-    int incrementAuditCount(@Param("id") UUID id);
+    @Query(value = """
+            UPDATE users
+            SET
+                audit_count_today = CASE
+                    WHEN last_audit_date IS DISTINCT FROM CURRENT_DATE THEN 1
+                    ELSE audit_count_today + 1
+                END,
+                last_audit_date = CURRENT_DATE
+            WHERE id = :id
+              AND (
+                last_audit_date IS DISTINCT FROM CURRENT_DATE
+                OR audit_count_today < :dailyLimit
+              )
+            """, nativeQuery = true)
+    int incrementAuditCountIfUnderLimit(@Param("id") UUID id, @Param("dailyLimit") int dailyLimit);
 }

@@ -6,7 +6,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.time.Instant;
+import java.time.*;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -39,10 +39,8 @@ class UserServiceTest {
     @BeforeEach
     void setUp() {
         userService = new UserService(userRepository);
-
         UUID userId = UUID.randomUUID();
         principal = new AuthenticatedUser(userId, "abdulrahman@example.com", UserRoles.USER);
-
         user = new User();
         user.setId(userId);
         user.setDisplayName("Abdulrahman");
@@ -51,6 +49,7 @@ class UserServiceTest {
         user.setIsVerified(true);
         user.setCreatedAt(Instant.now());
         user.setAuditCountToday(2);
+        user.setLastAuditDate(LocalDate.now());
     }
 
     // ----- getCurrentUser -----
@@ -64,12 +63,38 @@ class UserServiceTest {
         assertThat(response.id()).isEqualTo(user.getId());
         assertThat(response.displayName()).isEqualTo("Abdulrahman");
         assertThat(response.auditCountToday()).isEqualTo(2);
+        verify(userRepository, never()).save(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void getCurrentUser_resetsAuditCount_whenLastAuditDateIsStale() {
+        user.setAuditCountToday(7);
+        user.setLastAuditDate(LocalDate.now().minusDays(1));
+        when(userRepository.findById(principal.id())).thenReturn(Optional.of(user));
+
+        UserProfileResponse response = userService.getCurrentUser(principal);
+
+        assertThat(response.auditCountToday()).isEqualTo(0);
+        assertThat(user.getLastAuditDate()).isEqualTo(LocalDate.now());
+        verify(userRepository).save(user);
+    }
+
+    @Test
+    void getCurrentUser_resetsAuditCount_whenLastAuditDateIsNull() {
+        user.setAuditCountToday(3);
+        user.setLastAuditDate(null);
+        when(userRepository.findById(principal.id())).thenReturn(Optional.of(user));
+
+        UserProfileResponse response = userService.getCurrentUser(principal);
+
+        assertThat(response.auditCountToday()).isEqualTo(0);
+        assertThat(user.getLastAuditDate()).isEqualTo(LocalDate.now());
+        verify(userRepository).save(user);
     }
 
     @Test
     void getCurrentUser_throwsNotFound_whenUserMissing() {
         when(userRepository.findById(principal.id())).thenReturn(Optional.empty());
-
         assertThatThrownBy(() -> userService.getCurrentUser(principal))
                 .isInstanceOf(ApiException.class)
                 .hasMessage("User not found.")
@@ -80,7 +105,6 @@ class UserServiceTest {
     @Test
     void getCurrentUser_propagatesDataAccessException() {
         when(userRepository.findById(principal.id())).thenThrow(new DataAccessResourceFailureException("db down"));
-
         assertThatThrownBy(() -> userService.getCurrentUser(principal))
                 .isInstanceOf(DataAccessResourceFailureException.class);
     }

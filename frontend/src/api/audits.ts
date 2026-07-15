@@ -34,6 +34,11 @@ export async function revokeShareLink(id: string): Promise<void> {
   await apiClient.delete(`/audits/${id}/share`);
 }
 
+export async function retryAudit(id: string): Promise<AuditResponse> {
+  const { data } = await apiClient.post(`/audits/${id}/retry`);
+  return AuditResponseSchema.parse(data);
+}
+
 export async function getSharedReport(token: string): Promise<AuditResponse> {
   const { data } = await apiClient.get(`/shared/${token}`);
   return AuditResponseSchema.parse(data);

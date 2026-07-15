@@ -46,7 +46,7 @@ public class RateLimitInterceptor implements HandlerInterceptor {
 
         // If the route is anonymous or not fully populated yet, proceed safely
         if (authentication == null || !(authentication.getPrincipal() instanceof AuthenticatedUser principal)) {
-            log.trace("Rate limiting skipped: Anonymous request to {}", request.getRequestURI());
+            log.debug("Rate limiting skipped: Anonymous request to {}", request.getRequestURI());
             return true;
         }
 

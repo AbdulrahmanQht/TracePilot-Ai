@@ -82,7 +82,9 @@ public class AuditResultListener {
         String status = root.path("status").asText("");
 
         if ("FAILED".equals(status)) {
+            String workerError = root.path("error").asText("Worker reported failure.");
             audit.setStatus(AuditStatus.FAILED);
+            audit.setFailureReason(workerError);
             auditRepository.save(audit);
             auditEmitterRegistry.pushAndComplete(auditId, AuditResponse.from(audit));
             log.error("Audit {} marked FAILED. Worker error: {}", auditId, root.path("error").asText(""));

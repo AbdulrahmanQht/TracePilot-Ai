@@ -21,6 +21,7 @@ import com.tracepilot.api.DTO.Response.ReliabilityResponse;
 import com.tracepilot.api.Entities.TraceAudit;
 import com.tracepilot.api.Entities.User;
 import com.tracepilot.api.Enums.AuditInputSource;
+import com.tracepilot.api.Enums.AuditStatus;
 import com.tracepilot.api.Exceptions.ApiException;
 import com.tracepilot.api.Repositories.ReliabilityHistoryRepository;
 import com.tracepilot.api.Repositories.TraceAuditRepository;
@@ -37,6 +38,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Service
 public class AuditService {
+        private static final int DAILY_AUDIT_LIMIT = 10;
         private final TraceAuditRepository auditRepository;
         private final UserRepository userRepository;
         private final ReliabilityHistoryRepository historyRepository;
@@ -81,6 +83,14 @@ public class AuditService {
                 }
 
                 log.info("No cached audit found.");
+
+                int updated = userRepository.incrementAuditCountIfUnderLimit(principal.id(), DAILY_AUDIT_LIMIT);
+                if (updated == 0) {
+                        log.warn("User {} exceeded daily audit limit of {}", principal.id(), DAILY_AUDIT_LIMIT);
+                        throw new ApiException("Daily audit limit reached. Try again tomorrow.",
+                                        HttpStatus.TOO_MANY_REQUESTS);
+                }
+                log.info("Daily audit count incremented for user {}", principal.id());
 
                 User user = userRepository.findById(principal.id())
                                 .orElseThrow(() -> new IllegalStateException("User not found"));
@@ -143,9 +153,6 @@ public class AuditService {
 
                 log.info("Prior history count: {}", priorHistory.size());
 
-                log.info("Incrementing user's audit count...");
-                userRepository.incrementAuditCount(user.getId());
-
                 AuditJobMessage jobMessage = new AuditJobMessage(
                                 savedAudit.getId(),
                                 user.getId(),
@@ -159,6 +166,14 @@ public class AuditService {
 
                 log.info("Publishing audit {} to RabbitMQ...", savedAudit.getId());
 
+                publishJob(jobMessage, savedAudit.getId());
+
+                log.info("=== Audit initiation complete ===");
+
+                return AuditResponse.from(savedAudit);
+        }
+
+        private void publishJob(AuditJobMessage jobMessage, UUID auditId) {
                 rabbitTemplate.convertAndSend(
                                 RabbitConfig.EXCHANGE_NAME,
                                 "audit.job",
@@ -176,8 +191,63 @@ public class AuditService {
                                         return message;
                                 });
 
-                log.info("RabbitMQ publish complete.");
-                log.info("=== Audit initiation complete ===");
+                log.info("RabbitMQ publish complete for audit {}.", auditId);
+        }
+
+        @Transactional
+        public AuditResponse retryAudit(UUID auditId, AuthenticatedUser principal) {
+                TraceAudit audit = auditRepository.findById(auditId)
+                                .orElseThrow(() -> new ApiException("Audit not found", HttpStatus.NOT_FOUND));
+
+                if (!audit.getUser().getId().equals(principal.id())) {
+                        throw new ApiException("Audit not found", HttpStatus.NOT_FOUND);
+                }
+
+                if (audit.getStatus() != AuditStatus.FAILED) {
+                        throw new ApiException(
+                                        "Only a FAILED audit can be retried (current status: " + audit.getStatus()
+                                                        + ")",
+                                        HttpStatus.CONFLICT);
+                }
+
+                log.info("Retrying audit {}...", auditId);
+
+                // Clear out any partial results from the prior attempt.
+                audit.getAgentReports().clear();
+                audit.setOverallScore(null);
+                audit.setExtractedEvidence(null);
+                audit.setWithheldClaims(null);
+                audit.setCompletedAt(null);
+                audit.setFailureReason(null);
+                audit.setStatus(AuditStatus.PENDING);
+                TraceAudit savedAudit = auditRepository.saveAndFlush(audit);
+
+                Pageable topFive = PageRequest.of(0, 5);
+                List<AuditJobMessage.PriorReliability> priorHistory = historyRepository
+                                .findByUserIdAndRepoNameAndAgentToolOrderByRecordedAtDesc(
+                                                audit.getUser().getId(),
+                                                audit.getRepoName(),
+                                                audit.getAgentTool(),
+                                                topFive)
+                                .stream()
+                                .map(history -> new AuditJobMessage.PriorReliability(
+                                                history.getReliabilityScore(),
+                                                history.getSignalSummary().toString(),
+                                                history.getRecordedAt().toString()))
+                                .toList();
+
+                AuditJobMessage jobMessage = new AuditJobMessage(
+                                savedAudit.getId(),
+                                audit.getUser().getId(),
+                                savedAudit.getTitle(),
+                                savedAudit.getRawTrace(),
+                                savedAudit.getRepoName(),
+                                savedAudit.getAgentTool(),
+                                savedAudit.getInputSource().name(),
+                                savedAudit.getSuspiciousContent(),
+                                priorHistory);
+
+                publishJob(jobMessage, savedAudit.getId());
 
                 return AuditResponse.from(savedAudit);
         }

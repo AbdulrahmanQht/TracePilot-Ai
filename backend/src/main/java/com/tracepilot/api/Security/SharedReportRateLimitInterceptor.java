@@ -34,6 +34,9 @@ public class SharedReportRateLimitInterceptor implements HandlerInterceptor {
         }
 
         String clientIp = IPResolver.getClientIp(request);
+        if (IPResolver.isLocalhost(clientIp)) {
+            return true;
+        }
         Bucket bucket = rateLimiterService.resolveBucket(clientIp);
 
         if (bucket.tryConsume(1)) {

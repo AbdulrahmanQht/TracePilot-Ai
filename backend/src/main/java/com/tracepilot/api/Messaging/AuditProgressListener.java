@@ -38,6 +38,6 @@ public class AuditProgressListener {
 
         auditEmitterRegistry.push(message.auditId(), message);
 
-        log.trace("Forwarded audit progress event to SSE clients for audit {}", message.auditId());
+        log.debug("Forwarded audit progress event to SSE clients for audit {}", message.auditId());
     }
 }

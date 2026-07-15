@@ -53,7 +53,7 @@ public class TraceAudit {
 
     @Column(name = "raw_trace", nullable = false, columnDefinition = "TEXT")
     private String rawTrace;
-    
+
     @Column(name = "trace_hash", nullable = false, length = 64)
     private String traceHash;
 
@@ -98,6 +98,9 @@ public class TraceAudit {
 
     @Column(name = "suspicious_content", nullable = false)
     private Boolean suspiciousContent = false;
+    
+    @Column(name = "failure_reason", length = 300)
+    private String failureReason;
 
     @OneToMany(mappedBy = "audit", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<AgentReport> agentReports = new ArrayList<>();

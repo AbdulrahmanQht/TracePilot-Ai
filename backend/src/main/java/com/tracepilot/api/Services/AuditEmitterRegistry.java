@@ -83,7 +83,7 @@ public class AuditEmitterRegistry {
         for (SseEmitter emitter : list) {
             try {
                 emitter.send(SseEmitter.event().name("progress").data(payload));
-                log.trace("Successfully sent progress event for audit {}", auditId);
+                log.debug("Successfully sent progress event for audit {}", auditId);
             } catch (IOException e) {
                 log.error("Failed to send progress event for audit {}", auditId, e);
                 emitter.completeWithError(e);

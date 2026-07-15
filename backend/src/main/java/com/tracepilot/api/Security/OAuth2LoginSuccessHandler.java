@@ -29,6 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Component
 public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
+    private static final String REFRESH_COOKIE = "refreshToken";
     private final AuthService authService;
     private final JwtService jwtService;
     private final JwtConfig jwtConfig;
@@ -95,10 +96,9 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
     }
 
     private ResponseCookie buildCookie(String rawToken) {
-        log.debug("Building secure refresh token cookie");
-        return ResponseCookie.from("refreshToken", rawToken)
+        return ResponseCookie.from(REFRESH_COOKIE, rawToken)
                 .httpOnly(true)
-                .secure(true)
+                .secure(jwtConfig.cookieSecure())
                 .sameSite("Strict")
                 .path("/api/v1/auth")
                 .maxAge(Duration.ofDays(jwtConfig.refreshExpiryDays()))

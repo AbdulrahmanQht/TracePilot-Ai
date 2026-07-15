@@ -18,6 +18,7 @@ public record AuditResponse(
         Integer overallScore,
         boolean isPublic,
         String shareToken,
+        String failureReason,
         Instant createdAt,
         Instant completedAt,
         List<AgentReportResponse> reports) {
@@ -33,6 +34,7 @@ public record AuditResponse(
                 audit.getOverallScore(),
                 audit.getIsPublic(),
                 audit.getShareToken(),
+                audit.getFailureReason(),
                 audit.getCreatedAt(),
                 audit.getCompletedAt(),
                 audit.getAgentReports().stream().map(AgentReportResponse::from).toList());

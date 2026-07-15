@@ -220,7 +220,7 @@ export default function SubmitPage() {
             </div>
           </div>
           
-          {auditsUsed > 0 && (
+          {recentAudits.length > 0 && (
             <div className="border-2 border-black bg-card">
               <div className="border-b-2 border-black px-5 py-3 bg-muted">
                 <span

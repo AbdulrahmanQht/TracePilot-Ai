@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode, } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { AxiosError } from "axios";
 import { useLogin, useRegister, useLogout, useRefresh } from "../hooks/useAuth";
 import { useCurrentUser, userKeys } from "../hooks/useUser";
 import { setAccessToken, setUnauthorizedHandler } from "../api/client";
@@ -34,10 +35,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setAccessToken(data.accessToken);
         setIsAuthenticated(true);
       },
-      onError: () => {
+      onError: (error) => {
+      const axiosError = error as AxiosError;
+
+      if (axiosError.response?.status === 401) {
         setAccessToken(null);
         setIsAuthenticated(false);
-      },
+      }
+    },
       onSettled: () => setIsInitializing(false),
     });
     // run once on mount only

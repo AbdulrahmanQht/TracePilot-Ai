@@ -19,4 +19,10 @@ public class IPResolver {
         }
         return ip;
     }
+
+    public static boolean isLocalhost(String ip) {
+        return "127.0.0.1".equals(ip)
+                || "::1".equals(ip)
+                || "0:0:0:0:0:0:0:1".equals(ip);
+    }
 }

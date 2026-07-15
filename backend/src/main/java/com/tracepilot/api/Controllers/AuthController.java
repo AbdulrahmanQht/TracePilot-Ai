@@ -14,7 +14,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import jakarta.validation.Valid;
 
 import com.tracepilot.api.Security.AuthenticatedUser;
@@ -136,7 +137,11 @@ public class AuthController {
     public ResponseEntity<Void> changePassword(
             @Valid @RequestBody ChangePasswordRequest request,
             @AuthenticationPrincipal AuthenticatedUser principal) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
+        log.info("Authentication = {}", authentication);
+        log.info("Principal class = {}", authentication == null ? null : authentication.getPrincipal().getClass());
+        log.info("@AuthenticationPrincipal = {}", principal);
         log.info("Authenticated password change requested.");
 
         authService.changePassword(
@@ -146,11 +151,12 @@ public class AuthController {
 
         return ResponseEntity.noContent().build();
     }
-
+    
     private ResponseCookie buildCookie(String rawToken) {
+        log.info("Cookie secure = {}", jwtConfig.cookieSecure());
         return ResponseCookie.from(REFRESH_COOKIE, rawToken)
                 .httpOnly(true)
-                .secure(true)
+                .secure(jwtConfig.cookieSecure())
                 .sameSite("Strict")
                 .path("/api/v1/auth")
                 .maxAge(Duration.ofDays(jwtConfig.refreshExpiryDays()))

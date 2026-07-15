@@ -50,6 +50,7 @@ export const AuditResponseSchema = z.object({
   reports: z.array(AgentReportResponseSchema),
   isPublic: z.boolean(),
   shareToken: z.string().nullable(),
+  failureReason: z.string().nullable().optional(),
   createdAt: z.string(),
   completedAt: z.string().nullable(),
 });

@@ -4,9 +4,9 @@ import { useParams, useNavigate } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft, Share2, Zap, Terminal, BarChart2,
-  XCircle, Copy, CheckCircle, Link2Off,
+  XCircle, Copy, CheckCircle, Link2Off, RefreshCw
 } from "lucide-react";
-import { useAudit, useShareAudit, useRevokeShareLink, auditKeys } from "@/hooks/useAudit";
+import { useAudit, useShareAudit, useRevokeShareLink, useRetryAudit, auditKeys } from "@/hooks/useAudit";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -258,6 +258,15 @@ export default function AuditDetailPage() {
     },
   });
 
+  const retryMutation = useRetryAudit({
+    onSuccess: (updated) => {
+      if (id) {
+        queryClient.setQueryData(auditKeys.detail(id), updated);
+      }
+      navigate(`/app/audits/${updated.id}/processing`);
+    },
+  });
+
   function copyShareLink(shareToken: string) {
     const url = `${window.location.origin}/shared/${shareToken}`;
     navigator.clipboard.writeText(url).then(() => {
@@ -322,6 +331,17 @@ export default function AuditDetailPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          {audit.status === "FAILED" && (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => retryMutation.mutate(audit.id)}
+              disabled={retryMutation.isPending}
+              className="flex items-center gap-1.5"
+            >
+              <RefreshCw size={11} /> {retryMutation.isPending ? "Retrying…" : "Retry Audit"}
+            </Button>
+          )}
           {audit.isPublic && audit.shareToken ? (
             <>
               <Button variant="outline" onClick={() => copyShareLink(audit.shareToken!)} size="sm" className="flex items-center gap-1.5">
@@ -352,6 +372,17 @@ export default function AuditDetailPage() {
       </div>
 
       <div className="px-8 py-7 space-y-6">
+        {audit.status === "FAILED" && (
+          <div className="border-2 border-destructive px-6 py-4 flex items-start gap-3 bg-destructive/5">
+            <XCircle size={16} className="text-destructive shrink-0 mt-0.5" />
+            <div>
+              <p style={{ fontFamily: "var(--font-display)", fontSize: 13 }}>This audit failed</p>
+              <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--muted-foreground)", marginTop: 2 }}>
+                {audit.failureReason ?? "No further detail was recorded for this failure."}
+              </p>
+            </div>
+          </div>
+        )}
         {audit.overallScore != null && (
           <div className="border-2 border-black shadow-[4px_4px_0px_#0D0D0D] flex flex-wrap items-center gap-6 px-7 py-6 bg-card">
             <ScoreDial score={audit.overallScore} />

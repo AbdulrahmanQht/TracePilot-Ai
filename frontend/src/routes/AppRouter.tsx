@@ -36,21 +36,21 @@ return (
 
             {/* Authenticated app */}
             <Route element={<ProtectedRoute />}>
-              <Route element={<AppShell />}>
-                <Route path="/app" element={<Navigate to="/app/submit" replace />} />
-                <Route path="/app/submit" element={<SubmitPage />} />
-                <Route path="/app/audits/:id/processing" element={<ProcessingPage />} />
-                <Route path="/app/audits/:id" element={<AuditDetailPage />} />
-                <Route path="/app/history" element={<HistoryPage />} />
-                <Route path="/app/reliability" element={<ReliabilityPage />} />
-                <Route path="/app/profile" element={<ProfilePage />} />
+            <Route element={<AppShell />}>
+              <Route path="/app" element={<Navigate to="/app/submit" replace />} />
+              <Route path="/app/submit" element={<SubmitPage />} />
+              <Route path="/app/audits/:id/processing" element={<ProcessingPage />} />
+              <Route path="/app/audits/:id" element={<AuditDetailPage />} />
+              <Route path="/app/history" element={<HistoryPage />} />
+              <Route path="/app/reliability" element={<ReliabilityPage />} />
+              <Route path="/app/profile" element={<ProfilePage />} />
+
+              {/* Admin only */}
+              <Route element={<ProtectedRoute requiredRole="ADMIN" />}>
+                <Route path="/admin" element={<AdminPage />} />
               </Route>
             </Route>
-
-            {/* Admin only */}
-            <Route element={<ProtectedRoute requiredRole="ADMIN" />}>
-            <Route path="/admin" element={<AdminPage />} />
-            </Route>
+          </Route>
 
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
