@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { useAuthContext } from "../context/AuthContext";
+import { useAuthContext } from "@/context/AuthContext";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 
 export default function OAuthRedirectPage() {
+  useDocumentTitle("OAuth Redirect Page");
   const [params] = useSearchParams();
   const { loginWithToken } = useAuthContext();
   const navigate = useNavigate();
@@ -39,7 +41,7 @@ export default function OAuthRedirectPage() {
           ))}
         </div>
         <p style={{ fontFamily: "var(--font-display)", color: "var(--primary-foreground)", fontSize: 16 }}>
-          {error ? "Sign-in failed…" : "Completing sign-in…"}
+          {error ? "Login failed…" : "Completing login…"}
         </p>
         <p style={{ fontFamily: "var(--font-mono)", color: "rgba(244,241,234,0.5)", fontSize: 11, marginTop: 6, letterSpacing: "0.06em" }}>
           {error ? "REDIRECTING TO LOGIN" : "VALIDATING OAUTH TOKEN"}

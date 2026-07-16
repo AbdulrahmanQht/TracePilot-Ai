@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Check, XCircle, Zap, Terminal, BarChart2 } from "lucide-react";
 import { useAudit, auditKeys } from "@/hooks/useAudit";
 import { useAuditStream } from "@/hooks/useAuditStream";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import type { AuditResponse } from "@/schemas/audit";
 import { Button } from "@/components/ui/button";
 
@@ -18,6 +19,7 @@ const AGENT_STEPS: { type: AgentType; label: string; icon: React.ReactNode }[] =
 const TERMINAL_STATUSES: AuditResponse["status"][] = ["COMPLETE", "FAILED"];
 
 export default function ProcessingPage() {
+  useDocumentTitle("Audit Processing Page");
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();

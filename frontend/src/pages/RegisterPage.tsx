@@ -5,6 +5,7 @@ import { useForm, type UseFormRegisterReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import AuthShell from "../components/AuthShell";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useAuthContext } from "../context/AuthContext";
 import { RegisterRequestSchema, type RegisterRequest } from "../schemas/auth-requests";
 import type { ApiError } from "../schemas/error";
@@ -100,6 +101,7 @@ function getPasswordStrength(pw: string): { label: string; filled: number; tone:
 }
 
 export default function RegisterPage() {
+  useDocumentTitle("Register Page");
   const { register: registerUser } = useAuthContext();
   const navigate = useNavigate();
   const [showPw, setShowPw] = useState(false);
@@ -269,18 +271,12 @@ export default function RegisterPage() {
                   : <><span>Create Account</span><ArrowRight size={13} /></>}
               </Button>
             </form>
-
-            <p style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "var(--muted-foreground)", textAlign: "center", lineHeight: 1.5 }}>
-              By creating an account you agree to our{" "}
-              <a href="#" className="hover:underline" style={{ color: "var(--primary)" }}>Terms of Service</a> and{" "}
-              <a href="#" className="hover:underline" style={{ color: "var(--primary)" }}>Privacy Policy</a>.
-            </p>
           </div>
 
           <div className="border-t-2 border-black px-6 py-4 bg-muted">
             <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--muted-foreground)", textAlign: "center" }}>
               Already have an account?{" "}
-              <Link to="/login" style={{ color: "var(--primary)", fontWeight: 700 }} className="hover:underline">Sign in</Link>
+              <Link to="/login" style={{ color: "var(--primary)", fontWeight: 700 }} className="hover:underline">Login</Link>
             </p>
           </div>
         </div>

@@ -7,6 +7,7 @@ import {
   XCircle, Copy, CheckCircle, Link2Off, RefreshCw
 } from "lucide-react";
 import { useAudit, useShareAudit, useRevokeShareLink, useRetryAudit, auditKeys } from "@/hooks/useAudit";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -228,6 +229,7 @@ function AgentCard({
 }
 
 export default function AuditDetailPage() {
+  useDocumentTitle("Audit Detail Page");
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();

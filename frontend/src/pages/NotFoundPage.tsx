@@ -1,5 +1,6 @@
 import { useNavigate, Link } from "react-router";
 import { Terminal, ArrowLeft, Home, Search } from "lucide-react";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { Button } from "@/components/ui/button";
 
 const GLITCH_LINES = [
@@ -11,6 +12,7 @@ const GLITCH_LINES = [
 ];
 
 export default function NotFoundPage() {
+  useDocumentTitle("Not Found Page");
   const navigate = useNavigate();
 
   return (
@@ -106,7 +108,7 @@ export default function NotFoundPage() {
 
       <div className="border-t-2 border-black px-8 py-3 flex items-center justify-between shrink-0 bg-muted">
         <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted-foreground)" }}>
-          TracePilot.AI v3.0.0
+          TracePilot
         </span>
         <div className="flex gap-4">
           {["Privacy", "Terms", "Docs"].map(l => (

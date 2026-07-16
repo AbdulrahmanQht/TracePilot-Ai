@@ -36,7 +36,8 @@ public class SecurityConfig {
                         .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/auth/**", "/oauth2/**", "/login/oauth2/**", "/error").permitAll()
+                        .requestMatchers("/api/v1/health", "/api/v1/auth/**", "/oauth2/**", "/login/oauth2/**","/error")
+                        .permitAll()
                         .requestMatchers("/api/v1/shared/**").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated() // Protect everything else

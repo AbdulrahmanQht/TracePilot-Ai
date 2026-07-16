@@ -39,7 +39,7 @@ class RefreshTokenServiceTest {
 
     @BeforeEach
     void setUp() {
-        JwtConfig jwtConfig = new JwtConfig("secret", 900_000L, 7);
+        JwtConfig jwtConfig = new JwtConfig("secret", 900_000L, 7, true);
         refreshTokenService = new RefreshTokenService(refreshTokenRepository, jwtConfig);
 
         user = new User();

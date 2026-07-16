@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useNavigate } from "react-router";
 import { Search, Filter, Clock, ChevronRight, ChevronLeft, Bot } from "lucide-react";
 import { useAuditList } from "@/hooks/useAudit";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { AuditStatusSchema, AgentToolTypeSchema } from "@/schemas/audit";
 import { parseAgentFindings, type BlindOutcomeFindings } from "@/schemas/agent-findings";
 import type { AuditResponse } from "@/schemas/audit";
@@ -53,6 +54,7 @@ function getAuditTitle(a: AuditResponse) {
 }
 
 export default function HistoryPage() {
+  useDocumentTitle("Audits History Page");
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<(typeof STATUS_OPTS)[number]>("ALL");

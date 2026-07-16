@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Shield, Users, FileSearch, ChevronRight, ChevronLeft } from "lucide-react";
 import { useNavigate } from "react-router";
 import { useAdminUsers, useAdminFlaggedAudits } from "@/hooks/useAdmin";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -26,6 +27,7 @@ function formatDate(iso: string) {
 }
 
 export default function AdminPage() {
+  useDocumentTitle("Admin Page");
   const [tab, setTab] = useState<Tab>("users");
   const [usersPage, setUsersPage] = useState(0);
   const [auditsPage, setAuditsPage] = useState(0);

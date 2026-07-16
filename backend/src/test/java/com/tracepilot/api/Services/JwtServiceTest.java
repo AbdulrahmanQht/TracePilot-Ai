@@ -29,7 +29,7 @@ class JwtServiceTest {
 
     @BeforeEach
     void setUp() {
-        jwtConfig = new JwtConfig(SECRET, 900_000L, 7);
+        jwtConfig = new JwtConfig(SECRET, 900_000L, 7, true);
         jwtService = new JwtService(jwtConfig);
 
         user = new User();

@@ -7,6 +7,7 @@ import { z } from "zod";
 import { AuditRequestSchema, type AuditRequest } from "@/schemas/audit-request";
 import { AgentToolTypeSchema, AuditInputSourceSchema } from "@/schemas/audit";
 import { useSubmitAudit } from "@/hooks/useAudit";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useAuditList } from "@/hooks/useAudit";
 import { useCurrentUser } from "@/hooks/useUser";
 import { TraceEditor } from "@/components/TraceEditor";
@@ -36,6 +37,7 @@ function verdictVariant(score: number | null): "verdict-contradicted" | "verdict
 }
 
 export default function SubmitPage() {
+  useDocumentTitle("Submit Audit Page");
   const navigate = useNavigate();
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -144,7 +146,7 @@ export default function SubmitPage() {
               <div className="sm:col-span-2 space-y-1">
                 <Label variant="default">TITLE</Label>
                 <Input {...register("title")}
-                  placeholder="e.g. Billing discount fix — claimed tests pass" />
+                  placeholder="e.g. Billing discount fix: claimed tests pass" />
               </div>
               <div className="space-y-1">
                 <Label variant="default">REPOSITORY</Label>

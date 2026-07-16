@@ -12,6 +12,7 @@ import { useReliabilityTrend, reliabilityKeys } from "@/hooks/useReliability";
 import { getReliabilityTrend } from "@/api/reliability";
 import { AgentToolTypeSchema } from "@/schemas/audit";
 import { Label } from "@/components/ui/label";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { Progress, ProgressTrack, ProgressIndicator } from "@/components/ui/progress";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -102,8 +103,7 @@ function FilterSelect({
 const TOOL_OPTS = AgentToolTypeSchema.options;
 
 export default function ReliabilityPage() {
-  // Pull a page of the user's audits purely to derive which repos/tools they
-  // actually have data for — there's no dedicated "list distinct repos" endpoint.
+  useDocumentTitle("Reliability Trend Page");
   const { data: auditPage, isLoading: auditsLoading } = useAuditList({ page: 0, size: 100 });
 
   const repoOptions = useMemo(() => {

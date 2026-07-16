@@ -6,6 +6,7 @@ import { z } from "zod";
 import { User, Mail, Lock, Shield, Eye, EyeOff, Check, AlertTriangle } from "lucide-react";
 import { useAuthContext } from "@/context/AuthContext";
 import { useUpdateUser, useDeleteUser } from "@/hooks/useUser";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useChangePassword } from "@/hooks/useAuth";
 import { useAuditList } from "@/hooks/useAudit";
 import { UpdateUserRequestSchema } from "@/schemas/user";
@@ -29,6 +30,7 @@ const ChangePasswordFormSchema = ChangePasswordRequestSchema.extend({
 type ChangePasswordFormValues = z.infer<typeof ChangePasswordFormSchema>;
 
 export default function ProfilePage() {
+  useDocumentTitle("Profile Page");
   const { user, logout } = useAuthContext();
   const navigate = useNavigate();
 

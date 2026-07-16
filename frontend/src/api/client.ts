@@ -19,6 +19,7 @@ export const apiClient = axios.create({
 
 const PUBLIC_URL_PATTERNS = [
   /^\/shared\//,
+  /^\/health$/,
   /^\/auth\/login$/,
   /^\/auth\/register$/,
   /^\/auth\/refresh$/,

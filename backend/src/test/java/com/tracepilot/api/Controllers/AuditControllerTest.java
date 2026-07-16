@@ -10,16 +10,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import org.mockito.Mock;
-import org.springframework.test.web.servlet.MvcResult;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
-import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -29,20 +27,20 @@ import org.springframework.test.web.servlet.MockMvc;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
-
+import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tracepilot.api.DTO.Request.AuditRequest;
 import com.tracepilot.api.DTO.Response.AuditResponse;
 import com.tracepilot.api.Enums.AuditInputSource;
 import com.tracepilot.api.Enums.AuditStatus;
 import com.tracepilot.api.Enums.UserRoles;
-import com.tracepilot.api.Services.AuditEmitterRegistry;
 import com.tracepilot.api.Exceptions.ApiException;
 import com.tracepilot.api.Exceptions.GlobalExceptionHandler;
 import com.tracepilot.api.Security.AuthenticatedUser;
+import com.tracepilot.api.Services.AuditEmitterRegistry;
 import com.tracepilot.api.Services.AuditService;
 
 @ExtendWith(MockitoExtension.class)
@@ -78,8 +76,20 @@ class AuditControllerTest {
         }
 
         private AuditResponse sampleAuditResponse(UUID id) {
-                return new AuditResponse(id, "Title", "tracepilot", "GENERIC", AuditInputSource.PASTED_TEXT,
-                                AuditStatus.PENDING, null, false, null, Instant.now(), null, List.of());
+                return new AuditResponse(
+                                id,
+                                "Title",
+                                "tracepilot",
+                                "GENERIC",
+                                AuditInputSource.PASTED_TEXT,
+                                AuditStatus.PENDING,
+                                null,
+                                false,
+                                null, // shareToken
+                                null, // failureReason
+                                Instant.now(),
+                                null,
+                                List.of());
         }
 
         @Test
@@ -122,9 +132,20 @@ class AuditControllerTest {
         @Test
         void streamAudit_pushesImmediately_whenAuditAlreadyComplete() throws Exception {
                 UUID auditId = UUID.randomUUID();
-                AuditResponse completed = new AuditResponse(auditId, "Title", "tracepilot", "GENERIC",
-                                AuditInputSource.PASTED_TEXT, AuditStatus.COMPLETE, 90, false, null, Instant.now(),
-                                Instant.now(), List.of());
+                AuditResponse completed = new AuditResponse(
+                                auditId,
+                                "Title",
+                                "tracepilot",
+                                "GENERIC",
+                                AuditInputSource.PASTED_TEXT,
+                                AuditStatus.COMPLETE,
+                                90,
+                                false,
+                                null,
+                                null,
+                                Instant.now(),
+                                Instant.now(),
+                                List.of());
                 when(auditService.getAuditById(eq(auditId), eq(principal))).thenReturn(completed);
                 when(auditEmitterRegistry.register(auditId))
                                 .thenReturn(new org.springframework.web.servlet.mvc.method.annotation.SseEmitter());
@@ -163,13 +184,27 @@ class AuditControllerTest {
         @Test
         void shareAudit_returnsShareableResponse() throws Exception {
                 UUID auditId = UUID.randomUUID();
-                AuditResponse shared = new AuditResponse(auditId, "Title", "tracepilot", "GENERIC",
-                                AuditInputSource.PASTED_TEXT, AuditStatus.COMPLETE, 90, true, "share-token-abc",
+
+                AuditResponse shared = new AuditResponse(
+                                auditId,
+                                "Title",
+                                "tracepilot",
+                                "GENERIC",
+                                AuditInputSource.PASTED_TEXT,
+                                AuditStatus.COMPLETE,
+                                90,
+                                true,
+                                "share-token-abc",
+                                null,
                                 Instant.now(),
-                                Instant.now(), List.of());
-                when(auditService.createShareLink(eq(auditId), eq(principal))).thenReturn(shared);
+                                Instant.now(),
+                                List.of());
+
+                when(auditService.createShareLink(eq(auditId), eq(principal)))
+                                .thenReturn(shared);
 
                 mockMvc.perform(post("/api/v1/audits/{id}/share", auditId))
+                                .andDo(print())
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$.shareToken").value("share-token-abc"))
                                 .andExpect(jsonPath("$.isPublic").value(true));
