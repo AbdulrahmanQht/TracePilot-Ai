@@ -110,11 +110,6 @@ export default function NotFoundPage() {
         <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted-foreground)" }}>
           TracePilot
         </span>
-        <div className="flex gap-4">
-          {["Privacy", "Terms", "Docs"].map(l => (
-            <a key={l} href="#" style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "var(--muted-foreground)" }} className="hover:underline">{l}</a>
-          ))}
-        </div>
       </div>
     </div>
   );

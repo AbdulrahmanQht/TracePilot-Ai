@@ -33,18 +33,6 @@ export default function AuthShell({ children }: { children: ReactNode }) {
         <span className="font-mono text-[10px] text-muted-foreground">
           TracePilot
         </span>
-
-        <div className="flex gap-4">
-          {["Privacy", "Terms", "Docs"].map((l) => (
-            <a
-              key={l}
-              href="#"
-              className="font-body text-[11px] text-muted-foreground hover:underline"
-            >
-              {l}
-            </a>
-          ))}
-        </div>
       </footer>
     </div>
   );
