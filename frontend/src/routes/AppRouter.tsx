@@ -6,6 +6,8 @@ import { PublicOnlyRoute } from "./PublicOnlyRoute";
 const LandingPage = lazy(() => import("@/pages/LandingPage"));
 const LoginPage = lazy(() => import("@/pages/LoginPage"));
 const RegisterPage = lazy(() => import("@/pages/RegisterPage"));
+const ForgotPasswordPage = lazy(() => import("@/pages/ForgotPasswordPage"));
+const ResetPasswordPage = lazy(() => import("@/pages/ResetPasswordPage"));
 const OAuthRedirectPage = lazy(() => import("@/pages/OAuthRedirectPage"));
 const SharedReportPage = lazy(() => import("@/pages/SharedReportPage"));
 const NotFoundPage = lazy(() => import("@/pages/NotFoundPage"));
@@ -28,6 +30,8 @@ return (
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
             </Route>
 
             {/* Public, no auth*/}
