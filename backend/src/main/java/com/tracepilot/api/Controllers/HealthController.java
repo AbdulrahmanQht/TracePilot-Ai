@@ -26,10 +26,10 @@ public class HealthController {
     private final RestTemplate restTemplate;
 
     @Value("${tracepilot.worker.health-url}")
-    private String workerHealthUrl; // e.g. http://ai-worker:8001/ai-worker/v1/health
+    private String workerHealthUrl;
 
     @Value("${tracepilot.jaeger.health-url}")
-    private String jaegerHealthUrl; // e.g. http://jaeger:14269/ (Jaeger's admin health port)
+    private String jaegerHealthUrl;
 
     public HealthController(JdbcTemplate jdbcTemplate, ConnectionFactory rabbitConnectionFactory) {
         this.jdbcTemplate = jdbcTemplate;

@@ -71,7 +71,7 @@ function ScoreDial({ score }: { score: number }) {
 }
 
 // findings rendering (reused pattern from AuditDetailPage)
-function FindingsList({
+export function FindingsList({
   items,
 }: {
   items: { severity: string; title: string; body: string; evidence: string[]; footer?: string | undefined }[];

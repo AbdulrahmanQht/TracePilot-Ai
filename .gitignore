@@ -100,5 +100,8 @@ docker-compose.override.yml
 *.swo
 *~
 
-*.sql
+tracepilot_db.sql
+*.sh
+docker-compose.smoke.yml
 cookies.txt
+

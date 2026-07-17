@@ -1,7 +1,9 @@
 package com.tracepilot.api.Config;
 
+import java.util.ArrayList;
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
@@ -22,6 +24,9 @@ public class SecurityConfig {
     private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
     private final JwtAuthenticationFilter jwtAuthFilter;
 
+    @Value("${tracepilot.frontend.url:http://localhost:5173}")
+    private String frontendUrl;
+
     public SecurityConfig(OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler, JwtAuthenticationFilter jwtAuthFilter) {
         this.oAuth2LoginSuccessHandler = oAuth2LoginSuccessHandler;
         this.jwtAuthFilter = jwtAuthFilter;
@@ -36,7 +41,8 @@ public class SecurityConfig {
                         .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/health", "/api/v1/auth/**", "/oauth2/**", "/login/oauth2/**","/error")
+                        .requestMatchers("/api/v1/health", "/api/v1/auth/**", "/oauth2/**", "/login/oauth2/**",
+                                "/error")
                         .permitAll()
                         .requestMatchers("/api/v1/shared/**").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
@@ -51,7 +57,12 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:3000", "http://localhost:5173"));
+        List<String> allowedOrigins = new ArrayList<>(List.of("http://localhost:3000", "http://localhost:5173"));
+        if (frontendUrl != null && !allowedOrigins.contains(frontendUrl)) {
+            allowedOrigins.add(frontendUrl);
+        }
+
+        configuration.setAllowedOrigins(allowedOrigins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
         configuration.setAllowCredentials(true);
