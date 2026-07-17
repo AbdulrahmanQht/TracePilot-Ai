@@ -29,7 +29,7 @@ import com.tracepilot.api.Repositories.UserRepository;
 import com.tracepilot.api.Security.AuthenticatedUser;
 import com.tracepilot.api.Util.TraceInputGuard;
 import com.tracepilot.api.Util.TraceSanitizer;
-
+import com.tracepilot.api.Util.TraceScopeGuard;
 import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.propagation.TextMapSetter;
@@ -66,8 +66,20 @@ public class AuditService {
                 TraceInputGuard.validate(request.rawTrace());
                 log.info("Trace validation passed.");
 
+                TraceScopeGuard.validateLooksLikeTrace(request.rawTrace());
+                log.info("Trace scope check passed.");
+
                 String safeTrace = TraceSanitizer.redactSecrets(request.rawTrace());
-                boolean suspicious = TraceSanitizer.detectInjectionAttempt(safeTrace);
+                TraceSanitizer.InjectionScreenResult screening = TraceSanitizer.screenForInjection(safeTrace);
+                if (screening.shouldBlock()) {
+                        log.warn("Blocking audit submission for user {}: high-confidence prompt injection detected. patterns={}",
+                                        principal.id(), screening.matchedPatterns());
+                        throw new ApiException(
+                                        "This submission was blocked: it contains content that looks like an attempt "
+                                                        + "to override system instructions rather than a genuine execution trace.",
+                                        HttpStatus.UNPROCESSABLE_ENTITY);
+                }
+                boolean suspicious = screening.suspicious();
                 String traceHash = TraceInputGuard.computeNormalizedHash(safeTrace);
 
                 log.info("Trace sanitized.");

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import ssl
 
 import aio_pika
 from aio_pika.abc import (
@@ -30,7 +31,7 @@ logger = Logger()
 tracer = trace.get_tracer("tracepilot-worker")
 
 RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "localhost")
-RABBITMQ_PORT = int(os.getenv("RABBITMQ_PORT", "5672"))
+RABBITMQ_PORT = int(os.getenv("RABBITMQ_PORT", "5671"))
 RABBITMQ_USERNAME = os.getenv("RABBITMQ_USERNAME", "guest")
 RABBITMQ_PASSWORD = os.getenv("RABBITMQ_PASSWORD", "guest")
 RABBITMQ_VHOST = os.getenv("RABBITMQ_VHOST", "/")
@@ -39,6 +40,8 @@ DLQ_QUEUE = os.getenv("AUDIT_JOBS_DLQ", "audit.jobs.dlq")
 PROGRESS_QUEUE = os.getenv("AUDIT_PROGRESS_QUEUE", "audit.progress")
 RESULTS_QUEUE = os.getenv("AUDIT_RESULTS_QUEUE", "audit.results")
 PREFETCH_COUNT = int(os.getenv("AUDIT_WORKER_PREFETCH", "4"))
+RABBITMQ_SSL = os.getenv("RABBITMQ_SSL", "true").lower() == "true"
+ssl_context = ssl.create_default_context() if RABBITMQ_SSL else None
 
 
 class AuditConsumer:
@@ -55,6 +58,8 @@ class AuditConsumer:
             login=RABBITMQ_USERNAME,
             password=RABBITMQ_PASSWORD,
             virtualhost=RABBITMQ_VHOST,
+            ssl=RABBITMQ_SSL,
+            ssl_context=ssl_context,
         )
         self._channel = await self._connection.channel()
         await self._channel.set_qos(prefetch_count=PREFETCH_COUNT)

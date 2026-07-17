@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
+import { useSystemHealth } from "@/hooks/useSystemHealth";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import {
   Terminal, ArrowRight, Shield, Activity, TrendingUp,
@@ -80,8 +81,8 @@ function MiniReport() {
         {[
           { v: "CONTRADICTED", color: "var(--color-crimson)" },
           { v: "UNVERIFIED",   color: "#7A4A28" },
-          { v: "LIKELY_COMPLETE", color: "var(--color-forest)" },
-          { v: "LIKELY_INCOMPLETE", color: "var(--color-brown)" },
+          { v: "LIKELY COMPLETE", color: "var(--color-forest)" },
+          { v: "LIKELY INCOMPLETE", color: "var(--color-brown)" },
         ].map((item) => (
           <div key={item.v} className="flex items-center gap-2">
             <div style={{ width: 10, height: 10, background: item.color, border: "1.5px solid black", flexShrink: 0 }} />
@@ -93,12 +94,139 @@ function MiniReport() {
   );
 }
 
+type FlowNodeProps = {
+  icon: React.ReactNode;
+  name: string;
+  sub?: string;
+  bg: string;
+  small?: boolean;
+};
+
+function FlowNode({
+  icon,
+  name,
+  sub,
+  bg,
+  small = false,
+}: FlowNodeProps) {
+  return (
+    <div
+      className={cx("border-neo")}
+      style={{
+        background: "var(--color-parchment)",
+        boxShadow: "3px 3px 0px #0D0D0D",
+        padding: small ? "8px 12px" : "10px 14px",
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        minWidth: small ? 150 : 170,
+      }}
+    >
+      <div
+        style={{
+          background: bg,
+          border: "2px solid black",
+          width: small ? 26 : 32,
+          height: small ? 26 : 32,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "#fff",
+          flexShrink: 0,
+        }}
+      >
+        {icon}
+      </div>
+
+      <div>
+        <div
+          style={{
+            fontFamily: "var(--font-display)",
+            fontSize: small ? 12 : 13,
+            color: "var(--color-ink)",
+            lineHeight: 1.2,
+          }}
+        >
+          {name}
+        </div>
+
+        {sub && (
+          <div
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 9,
+              color: "var(--color-ink-muted)",
+              letterSpacing: "0.05em",
+            }}
+          >
+            {sub}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+type ConnectorProps = {
+  label?: string;
+};
+
+function Connector({ label }: ConnectorProps) {
+  return (
+    <div className="flex flex-col items-center" style={{ minWidth: 44 }}>
+      <span
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: 9,
+          color: "var(--color-sage)",
+          marginBottom: 2,
+        }}
+      >
+        {label}
+      </span>
+      <ArrowRight size={16} color="var(--color-sage)" />
+    </div>
+  );
+}
+
+function VConnector({ label }: ConnectorProps) {
+  return (
+    <div className="flex flex-col items-center">
+      {label && (
+        <span
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 9,
+            color: "var(--color-sage)",
+          }}
+        >
+          {label}
+        </span>
+      )}
+      <ArrowRight
+        size={16}
+        color="var(--color-sage)"
+        style={{ transform: "rotate(90deg)" }}
+      />
+    </div>
+  );
+}
+
+
 export default function LandingPage() {
   useDocumentTitle("Landing Page");
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const tickerRef = useRef<HTMLDivElement>(null);
-
+  const systemStatus = useSystemHealth();
+  const dotColor =
+    systemStatus === "healthy" ? "var(--color-sage)" :
+    systemStatus === "unhealthy" ? "var(--color-crimson)" :
+    "var(--color-ink-muted)";
+  const dotLabel =
+    systemStatus === "healthy" ? "SYSTEMS ONLINE" :
+    systemStatus === "unhealthy" ? "SYSTEMS OFFLINE" :
+    "CHECKING STATUS";
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 60);
     window.addEventListener("scroll", onScroll, { passive: true });
@@ -169,7 +297,7 @@ export default function LandingPage() {
 
           {/* desktop links */}
           <div className="hidden md:flex items-center gap-6">
-            {["How it works", "Agents", "Architecture", "Docs"].map((item) => (
+           {["The Problem", "How it works", "Agents", "Architecture"].map((item) => (
               <a
                 key={item}
                 href={`#${item.toLowerCase().replace(/\s+/g, "-")}`}
@@ -200,7 +328,7 @@ export default function LandingPage() {
                 textDecoration: "none",
               }}
             >
-              Sign In
+              Login
             </Link>
             <Link
               to="/app/submit"
@@ -231,7 +359,7 @@ export default function LandingPage() {
             className="md:hidden border-t-2 border-black"
             style={{ background: scrolled ? "var(--color-forest)" : "var(--color-parchment)" }}
           >
-            {["How it works", "Agents", "Architecture", "Docs"].map((item) => (
+           {["The Problem", "How it works", "Agents", "Architecture"].map((item) => (
               <a
                 key={item}
                 href={`#${item.toLowerCase().replace(/\s+/g, "-")}`}
@@ -248,7 +376,7 @@ export default function LandingPage() {
             ))}
             <div className="px-6 py-4 flex flex-col gap-3">
               <Link to="/login" style={{ color: scrolled ? "var(--color-sage)" : "var(--color-ink)", fontWeight: 600, textDecoration: "none" }}>
-                Sign In
+                Login
               </Link>
               <Link
                 to="/app/submit"
@@ -273,17 +401,17 @@ export default function LandingPage() {
           <div>
             {/* badge */}
             <div
-              className={cx("border-neo", "inline-flex items-center gap-2 mb-6")}
-              style={{ background: "var(--color-brown)", padding: "6px 14px" }}
-            >
-              <span
-                className="live-dot"
-                style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--color-sage)", display: "inline-block" }}
-              />
-              <span style={{ fontFamily: "var(--font-mono)", color: "var(--color-parchment)", fontSize: 12, letterSpacing: "0.1em" }}>
-                v3.0.0 · OPEN BETA
-              </span>
-            </div>
+            className={cx("border-neo", "inline-flex items-center gap-2 mb-6")}
+            style={{ background: "var(--color-brown)", padding: "6px 14px" }}
+          >
+            <span
+              className={systemStatus === "healthy" ? "live-dot" : undefined}
+              style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor, display: "inline-block" }}
+            />
+            <span style={{ fontFamily: "var(--font-mono)", color: "var(--color-parchment)", fontSize: 12, letterSpacing: "0.1em" }}>
+              {dotLabel}
+            </span>
+          </div>
 
             {/* headline */}
             <h1
@@ -312,7 +440,7 @@ export default function LandingPage() {
 
             <p style={{ fontFamily: "var(--font-body)", color: "var(--color-sage)", fontSize: 17, lineHeight: 1.65, maxWidth: 480, marginBottom: 32 }}>
               TracePilot AI runs three independent agents over your AI agent&apos;s execution
-              trace — detecting hallucinations, outcome contradictions, and reliability
+              trace detecting hallucinations, outcome contradictions, and reliability
               regressions before they reach production.
             </p>
 
@@ -387,7 +515,7 @@ export default function LandingPage() {
       </div>
 
       {/* PROBLEM */}
-      <section id="how-it-works" style={{ background: "var(--color-card)", padding: "96px 0" }}>
+      <section id="the-problem" style={{ background: "var(--color-card)", padding: "96px 0" }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 grid md:grid-cols-2 gap-12 items-start">
           {/* left */}
           <div>
@@ -399,7 +527,7 @@ export default function LandingPage() {
             </h2>
             <p style={{ fontFamily: "var(--font-body)", color: "var(--color-ink-muted)", fontSize: 16, lineHeight: 1.7, marginBottom: 16 }}>
               Modern AI agents operate across dozens of tool calls, nested reasoning steps, and opaque
-              model outputs. When something goes wrong — or appears to go right but didn&apos;t — you
+              model outputs. When something goes wrong or appears to go right but didn&apos;t you
               have no systematic way to know.
             </p>
             <p style={{ fontFamily: "var(--font-body)", color: "var(--color-ink-muted)", fontSize: 16, lineHeight: 1.7, marginBottom: 32 }}>
@@ -477,7 +605,7 @@ export default function LandingPage() {
       </section>
 
       {/*  HOW IT WORKS */}
-      <section id="agents" style={{ background: "var(--color-parchment)", padding: "96px 0" }}>
+      <section id="how-it-works" style={{ background: "var(--color-parchment)", padding: "96px 0" }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           {/* header row */}
           <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-12">
@@ -504,7 +632,7 @@ export default function LandingPage() {
               {
                 num: "01", title: "Paste your trace", bg: "var(--color-brown)", textColor: "var(--color-parchment)",
                 icon: <Terminal size={28} />,
-                desc: "Copy your agent's execution trace — LangChain, CrewAI, raw JSON, or plain log output — and paste it into the submission form.",
+                desc: "Copy your agent's execution trace - LangChain, CrewAI, raw JSON, or plain log output and paste it into the submission form.",
               },
               {
                 num: "02", title: "Three agents audit in parallel", bg: "var(--color-parchment)", textColor: "var(--color-ink)",
@@ -555,7 +683,7 @@ export default function LandingPage() {
       </section>
 
       {/* AGENTS */}
-      <section id="architecture" style={{ background: "var(--color-muted)", padding: "96px 0" }}>
+      <section id="agents" style={{ background: "var(--color-muted)", padding: "96px 0" }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--color-brown)", letterSpacing: "0.15em", marginBottom: 12 }}>
             THE THREE AGENTS
@@ -634,7 +762,7 @@ export default function LandingPage() {
               </span>
             </div>
             <div style={{ background: "var(--color-forest-code)", padding: "24px 28px", fontFamily: "'JetBrains Mono', monospace", fontSize: 12, lineHeight: 1.75 }}>
-              <div style={{ color: "#888" }}># One parse splits the trace into two groups —</div>
+              <div style={{ color: "#888" }}># One parse splits the trace into two groups </div>
               <div style={{ color: "#888" }}># the verifier only ever sees "evidence".</div>
               <br />
               <div>
@@ -681,7 +809,7 @@ export default function LandingPage() {
                 <span style={{ color: "var(--color-parchment)" }}>(extracted_evidence: str) -&gt; Task:</span>
               </div>
               <div style={{ marginLeft: 24, color: "#888" }}>
-                # ^ signature has no raw_trace, no claims param —
+                # signature has no raw_trace, no claims param
               </div>
               <div style={{ marginLeft: 24, color: "#888" }}>
                 # this function physically cannot reference them.
@@ -717,8 +845,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ARCHITECTURE */}
-      <section style={{ background: "var(--color-card)", padding: "96px 0" }}>
+       {/* ARCHITECTURE */}
+      <section id="architecture" style={{ background: "var(--color-card)", padding: "96px 0" }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--color-brown)", letterSpacing: "0.15em", marginBottom: 12 }}>
             ARCHITECTURE
@@ -758,60 +886,102 @@ export default function LandingPage() {
             ))}
           </div>
 
-          {/* architecture diagram */}
-          <div className={cx("border-neo", "shadow-neo")}>
-            <div style={{ background: "var(--color-ink)", padding: "12px 20px", borderBottom: "2px solid black" }}>
-              <span style={{ fontFamily: "var(--font-mono)", color: "var(--color-sage)", fontSize: 11, letterSpacing: "0.1em" }}>
-                SYSTEM FLOW DIAGRAM
-              </span>
+         {/* architecture diagram */}
+        <div className={cx("border-neo", "shadow-neo")}>
+          <div style={{ background: "var(--color-ink)", padding: "12px 20px", borderBottom: "2px solid black" }}>
+            <span style={{ fontFamily: "var(--font-mono)", color: "var(--color-sage)", fontSize: 11, letterSpacing: "0.1em" }}>
+              SYSTEM FLOW DIAGRAM
+            </span>
+          </div>
+
+          <div style={{ background: "var(--color-forest-code)", padding: "32px 28px", display: "flex", flexDirection: "column", gap: 20 }}>
+
+            {/* row 1: client -> gateway -> db, with publish arrow anchored under gateway */}
+            <div className="flex flex-wrap items-start justify-center gap-3">
+              <FlowNode icon={<Zap size={18} />} name="React UI" sub="client" bg="var(--color-crimson)" />
+              <div className="flex items-center" style={{ height: 64 }}>
+                <Connector label="POST /trace" />
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <FlowNode icon={<Server size={18} />} name="Spring Boot Gateway" sub="JWT verify" bg="var(--color-forest)" />
+                <VConnector label="publish" />
+              </div>
+              <div className="flex items-center" style={{ height: 64 }}>
+                <Connector label="write" />
+              </div>
+              <FlowNode icon={<Database size={18} />} name="PostgreSQL" sub="persist trace" bg="#2C5282" />
             </div>
-            <div style={{ background: "var(--color-forest-code)", padding: "28px 32px", fontFamily: "'JetBrains Mono', monospace", fontSize: 12, lineHeight: 2 }}>
-              <div style={{ color: "var(--color-parchment)" }}>
-                <span style={{ color: "var(--color-amber-code)" }}>React UI</span>
-                <span style={{ color: "var(--color-sage)" }}> ──POST /api/trace──▶ </span>
-                <span style={{ color: "var(--color-amber-code)" }}>Spring Boot Gateway</span>
-                <span style={{ color: "var(--color-sage)" }}> ──JWT verify──▶ </span>
-                <span style={{ color: "var(--color-leaf-code)" }}>PostgreSQL</span>
+
+            {/* row 2: queue -> workers, with dispatch arrow anchored under workers going down to agents */}
+            <div className="flex justify-center">
+              <FlowNode icon={<Radio size={18} />} name="RabbitMQ" sub="task queue" bg="#7B3F00" />
+            </div>
+
+            <div className="flex justify-center">
+              <div className="flex flex-col items-center gap-1">
+                <VConnector label="dispatch" />
+                <FlowNode icon={<Cpu size={18} />} name="Python Workers" sub="FastAPI + CrewAI" bg="var(--color-brown)" />
+                <VConnector label="invoke" />
               </div>
-              <div style={{ color: "#555", marginLeft: 180 }}>│</div>
-              <div style={{ color: "var(--color-parchment)" }}>
-                <span style={{ color: "#555", marginRight: 8 }}>{"                           "}</span>
-                <span style={{ color: "var(--color-sage)" }}>└── publish ──▶ </span>
-                <span style={{ color: "var(--color-amber-code)" }}>RabbitMQ</span>
-                <span style={{ color: "var(--color-sage)" }}> ──dispatch──▶ </span>
-                <span style={{ color: "var(--color-amber-code)" }}>Python Workers</span>
+            </div>
+
+            {/* agent group */}
+            <div
+              style={{
+                border: "2px dashed var(--color-sage)", borderRadius: 4, padding: "20px 16px",
+                display: "flex", flexDirection: "column", gap: 10, alignItems: "center",
+              }}
+            >
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--color-parchment)", opacity: 0.6, letterSpacing: "0.1em" }}>
+                  CREWAI AGENTS · PARALLEL
+                </span>
+                <div className="flex flex-wrap justify-center gap-3">
+                  <FlowNode icon={<Activity size={16} />} name="TraceLoopAgent" bg="var(--color-brown)" small />
+                  <FlowNode icon={<Eye size={16} />} name="BlindVerifierAgent" bg="var(--color-crimson)" small />
+                  <FlowNode icon={<TrendingUp size={16} />} name="ReliabilityAgent" bg="var(--color-forest)" small />
+                </div>
               </div>
-              <div style={{ color: "#555", marginLeft: 340 }}>│</div>
-              <div style={{ color: "var(--color-parchment)" }}>
-                <span style={{ color: "#555" }}>{"                                                 "}</span>
-                <span style={{ color: "var(--color-sage)" }}>├── </span>
-                <span style={{ color: "var(--color-leaf-code)" }}>TraceLoopAgent</span>
-                <span style={{ color: "#888" }}> (CrewAI)</span>
+
+            <div className="flex justify-center">
+              <VConnector label="report ready" />
+            </div>
+
+            {/* return path */}
+            <div
+              style={{
+                border: "2px dashed var(--color-sage)", borderRadius: 4,
+                padding: "20px 16px",
+                display: "flex", flexDirection: "column", gap: 14, alignItems: "center",
+              }}
+            >
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--color-parchment)", opacity: 0.6, letterSpacing: "0.1em" }}>
+                RETURN PATH
+              </span>
+
+              {/* Workers -> RabbitMQ -> Spring Boot */}
+              <div className="flex flex-wrap items-start justify-center gap-3">
+                <FlowNode icon={<Cpu size={16} />} name="Python Workers" sub="results" bg="var(--color-brown)" small />
+                <div className="flex items-center" style={{ height: 50 }}>
+                  <Connector label="publish" />
+                </div>
+                <FlowNode icon={<Radio size={16} />} name="RabbitMQ" sub="results queue" bg="#7B3F00" small />
+                <div className="flex items-center" style={{ height: 50 }}>
+                  <Connector label="consume" />
+                </div>
+                <div className="flex flex-col items-center gap-1">
+                  <FlowNode icon={<Server size={16} />} name="Spring Boot" sub="persist + broadcast" bg="var(--color-forest)" small />
+                  <VConnector label="" />
+                </div>
               </div>
-              <div style={{ color: "var(--color-parchment)" }}>
-                <span style={{ color: "#555" }}>{"                                                 "}</span>
-                <span style={{ color: "var(--color-sage)" }}>├── </span>
-                <span style={{ color: "var(--color-leaf-code)" }}>BlindVerifierAgent</span>
-                <span style={{ color: "#888" }}> (CrewAI)</span>
-              </div>
-              <div style={{ color: "var(--color-parchment)" }}>
-                <span style={{ color: "#555" }}>{"                                                 "}</span>
-                <span style={{ color: "var(--color-sage)" }}>└── </span>
-                <span style={{ color: "var(--color-leaf-code)" }}>ReliabilityAgent</span>
-                <span style={{ color: "#888" }}> (CrewAI)</span>
-              </div>
-              <div style={{ color: "#555" }}>{"                                                           │"}</div>
-              <div style={{ color: "var(--color-parchment)" }}>
-                <span style={{ color: "#555" }}>{"                                                 "}</span>
-                <span style={{ color: "var(--color-sage)" }}>└── results ──▶ </span>
-                <span style={{ color: "var(--color-amber-code)" }}>Spring Boot</span>
-                <span style={{ color: "var(--color-sage)" }}> ──▶ </span>
-                <span style={{ color: "var(--color-leaf-code)" }}>PostgreSQL</span>
-                <span style={{ color: "var(--color-sage)" }}> ──▶ </span>
-                <span style={{ color: "var(--color-amber-code)" }}>React UI</span>
+
+              {/* Spring Boot branches to Postgres and React UI */}
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <FlowNode icon={<Database size={16} />} name="PostgreSQL" sub="save report" bg="#2C5282" small />
+                <FlowNode icon={<Zap size={16} />} name="React UI" sub="notify" bg="var(--color-crimson)" small />
               </div>
             </div>
           </div>
+        </div>
         </div>
       </section>
 
@@ -850,7 +1020,7 @@ export default function LandingPage() {
               className="nb-btn"
               style={{ background: "transparent", color: "var(--color-parchment)", borderColor: "var(--color-parchment)", fontSize: 15, padding: "13px 28px" }}
             >
-              Sign In
+              Login
               <Shield size={17} />
             </Link>
           </div>
@@ -879,9 +1049,9 @@ export default function LandingPage() {
               <div style={{ fontFamily: "var(--font-mono)", color: "var(--color-sage)", fontSize: 10, letterSpacing: "0.15em", marginBottom: 16 }}>PRODUCT</div>
               {[
                 { label: "Submit Trace", to: "/app/submit" },
-                { label: "Dashboard", to: "/app" },
                 { label: "Run History", to: "/app/history" },
-                { label: "Sign In", to: "/login" },
+                { label: "Reliability Trend", to: "/app/reliability" },
+                { label: "Profile Page", to: "/app/profile" },
               ].map((l) => (
                 <Link
                   key={l.label}
@@ -893,43 +1063,44 @@ export default function LandingPage() {
               ))}
             </div>
 
-            {/* docs */}
             <div>
-              <div style={{ fontFamily: "var(--font-mono)", color: "var(--color-sage)", fontSize: 10, letterSpacing: "0.15em", marginBottom: 16 }}>DOCS</div>
+              <div style={{ fontFamily: "var(--font-mono)", color: "var(--color-sage)", fontSize: 10, letterSpacing: "0.15em", marginBottom: 16 }}>DEVELOPER</div>
               {[
-                "Getting Started", "API Reference", "Agent Scores", "Verdict Types", "Open Source",
-              ].map((l) => (
-                <a
-                  key={l}
-                  href="#"
-                  style={{ fontFamily: "var(--font-body)", display: "block", color: "var(--color-parchment)", fontSize: 13, marginBottom: 10, textDecoration: "none", opacity: 0.85 }}
-                >
-                  {l}
-                </a>
-              ))}
+                  { label: "GitHub", href: "https://github.com/AbdulrahmanQht" },
+                  { label: "LinkedIn", href: "https://www.linkedin.com/in/abdulrahmanqht/" },
+                  { label: "Repository", href: "https://github.com/AbdulrahmanQht/TracePilot-Ai" },
+                ].map((l) => (
+                  <a
+                    key={l.label}
+                    href={l.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      fontFamily: "var(--font-body)",
+                      display: "block",
+                      color: "var(--color-parchment)",
+                      fontSize: 13,
+                      marginBottom: 10,
+                      textDecoration: "none",
+                      opacity: 0.85,
+                    }}
+                  >
+                    {l.label}
+                  </a>
+                ))}
             </div>
 
             {/* status */}
             <div>
               <div style={{ fontFamily: "var(--font-mono)", color: "var(--color-sage)", fontSize: 10, letterSpacing: "0.15em", marginBottom: 16 }}>STATUS</div>
               <div className={cx("border-neo")} style={{ background: "var(--color-forest)", padding: "12px 14px", display: "inline-flex", alignItems: "center", gap: 8 }}>
-                <span className="live-dot" style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--color-sage)", display: "inline-block" }} />
-                <span style={{ fontFamily: "var(--font-mono)", color: "var(--color-sage)", fontSize: 11 }}>ALL SYSTEMS GO</span>
-              </div>
-              <p style={{ fontFamily: "var(--font-mono)", color: "var(--color-sage)", fontSize: 10, marginTop: 12, opacity: 0.7 }}>
-                Open Beta · v3.0.0
-              </p>
+              <span
+                className={systemStatus === "healthy" ? "live-dot" : undefined}
+                style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor, display: "inline-block" }}
+              />
+              <span style={{ fontFamily: "var(--font-mono)", color: "var(--color-sage)", fontSize: 11 }}>{dotLabel}</span>
             </div>
-          </div>
-
-          {/* bottom bar */}
-          <div style={{ borderTop: "2px solid rgba(255,255,255,0.15)", paddingTop: 24, display: "flex", flexWrap: "wrap", gap: 16, justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontFamily: "var(--font-mono)", color: "var(--color-sage)", fontSize: 10, opacity: 0.6, letterSpacing: "0.08em" }}>
-              © 2026 TracePilot
-            </span>
-            <span style={{ fontFamily: "var(--font-mono)", color: "var(--color-sage)", fontSize: 10, opacity: 0.6, letterSpacing: "0.08em" }}>
-              BUILT WITH CREWAI (FastApi) · SPRING BOOT · REACT (TS) · PostgreSQL
-            </span>
+            </div>
           </div>
         </div>
       </footer>

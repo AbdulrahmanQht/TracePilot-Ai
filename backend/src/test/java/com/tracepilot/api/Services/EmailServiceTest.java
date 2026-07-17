@@ -1,14 +1,13 @@
 package com.tracepilot.api.Services;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import static org.mockito.ArgumentMatchers.any;
 import org.mockito.Mock;
+import static org.mockito.Mockito.verify;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -25,7 +24,16 @@ class EmailServiceTest {
     @BeforeEach
     void setUp() {
         emailService = new EmailService(mailSender);
-        ReflectionTestUtils.setField(emailService, "backendUrl", "https://api.tracepilot.test");
+
+        ReflectionTestUtils.setField(
+                emailService,
+                "backendUrl",
+                "https://api.tracepilot.test");
+
+        ReflectionTestUtils.setField(
+                emailService,
+                "frontendUrl",
+                "https://tracepilot.test");
     }
 
     @Test
@@ -47,7 +55,9 @@ class EmailServiceTest {
     void sendPasswordResetEmail_sendsMessageWithCorrectRecipientAndLink() {
         ArgumentCaptor<SimpleMailMessage> captor = ArgumentCaptor.forClass(SimpleMailMessage.class);
 
-        emailService.sendPasswordResetEmail("abdulrahman@example.com", "reset-token-456");
+        emailService.sendPasswordResetEmail(
+                "abdulrahman@example.com",
+                "reset-token-456");
 
         verify(mailSender).send(captor.capture());
         SimpleMailMessage message = captor.getValue();
@@ -55,7 +65,7 @@ class EmailServiceTest {
         assertThat(message.getTo()).containsExactly("abdulrahman@example.com");
         assertThat(message.getSubject()).isEqualTo("Reset your password");
         assertThat(message.getText())
-                .contains("https://api.tracepilot.test/api/v1/auth/reset-password?token=reset-token-456");
+                .contains("https://tracepilot.test/reset-password?token=reset-token-456");
     }
 
     @Test

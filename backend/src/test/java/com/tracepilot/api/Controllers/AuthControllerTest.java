@@ -46,7 +46,7 @@ class AuthControllerTest {
 
     @BeforeEach
     void setUp() {
-        JwtConfig jwtConfig = new JwtConfig("secret", 900_000L, 7);
+        JwtConfig jwtConfig = new JwtConfig("secret", 900_000L, 7, true);
         AuthController controller = new AuthController(authService, jwtConfig);
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
                 .setControllerAdvice(new GlobalExceptionHandler())

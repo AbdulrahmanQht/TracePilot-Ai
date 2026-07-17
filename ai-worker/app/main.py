@@ -1,3 +1,4 @@
+import os
 import time
 from contextlib import asynccontextmanager
 
@@ -110,7 +111,9 @@ app.add_middleware(SecurityHeadersMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8080", "http://127.0.0.1:8080"],
+    allow_origins=os.getenv(
+        "CORS_ALLOWED_ORIGINS", "http://localhost:8080,http://127.0.0.1:8080"
+    ).split(","),
     allow_credentials=True,
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type"],
@@ -118,7 +121,9 @@ app.add_middleware(
 
 app.add_middleware(
     TrustedHostMiddleware,
-    allowed_hosts=["localhost", "127.0.0.1", "0.0.0.0"],
+    allowed_hosts=os.getenv(
+        "TRUSTED_HOSTS", "localhost,127.0.0.1,0.0.0.0,ai-worker"
+    ).split(","),
 )
 
 
@@ -138,7 +143,7 @@ if __name__ == "__main__":
 
     uvicorn.run(
         "app.main:app",
-        host="127.0.0.1",
-        port=8001,
+        host=os.getenv("HOST", "0.0.0.0"),
+        port=int(os.getenv("PORT", "8001")),
         reload=False,
     )

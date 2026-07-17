@@ -12,22 +12,26 @@ public class EmailService {
     @Value("${tracepilot.backend.url}")
     private String backendUrl;
 
+    @Value("${tracepilot.frontend.url}")
+    private String frontendUrl;
+
     public EmailService(JavaMailSender mailSender) {
         this.mailSender = mailSender;
     }
 
     public void sendVerificationEmail(String email, String token) {
-        SimpleMailMessage message = new SimpleMailMessage();
+        String verifyUrl = backendUrl + "/api/v1/auth/verify-email?token=" + token;
 
+        SimpleMailMessage message = new SimpleMailMessage();
         message.setTo(email);
         message.setSubject("Verify your email");
         message.setText("""
                 Click the link below to verify your email:
 
-                %s/api/v1/auth/verify-email?token=%s
+                %s
 
                 This link expires in 24 hours.
-                """.formatted(backendUrl, token));
+                """.formatted(verifyUrl));
 
         mailSender.send(message);
     }
@@ -40,10 +44,10 @@ public class EmailService {
         message.setText("""
                 Click the link below to reset your password:
 
-                %s/api/v1/auth/reset-password?token=%s
+                %s/reset-password?token=%s
 
                 This link expires in 1 hour.
-                """.formatted(backendUrl, token));
+                """.formatted(frontendUrl, token));
 
         mailSender.send(message);
     }

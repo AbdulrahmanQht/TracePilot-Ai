@@ -15,7 +15,6 @@ export default function AuthShell({ children }: { children: ReactNode }) {
 
           <span className="font-display text-base tracking-[-0.02em] text-primary-foreground">
             TracePilot
-            <span className="underline decoration-2">.AI</span>
           </span>
         </Link>
 
@@ -32,20 +31,8 @@ export default function AuthShell({ children }: { children: ReactNode }) {
       {/* Footer */}
       <footer className="flex items-center justify-between border-t-2 border-black bg-muted px-8 py-3">
         <span className="font-mono text-[10px] text-muted-foreground">
-          TracePilot.AI v3.0.0
+          TracePilot
         </span>
-
-        <div className="flex gap-4">
-          {["Privacy", "Terms", "Docs"].map((l) => (
-            <a
-              key={l}
-              href="#"
-              className="font-body text-[11px] text-muted-foreground hover:underline"
-            >
-              {l}
-            </a>
-          ))}
-        </div>
       </footer>
     </div>
   );

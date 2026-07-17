@@ -94,6 +94,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     try {
       await logoutMutation.mutateAsync();
+    } catch {
+      //
     } finally {
       clearSession();
     }

@@ -1,6 +1,7 @@
 import { Outlet, NavLink, useNavigate } from "react-router";
 import { Terminal, Send, History, TrendingUp, User, Shield, LogOut, ChevronRight } from "lucide-react";
 import { useAuthContext } from "@/context/AuthContext";
+import { useSystemHealth } from "@/hooks/useSystemHealth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -16,7 +17,21 @@ export default function AppShell() {
   const { user, logout } = useAuthContext();
   const navigate = useNavigate();
   const isAdmin = user?.role === "ADMIN";
+  const systemStatus = useSystemHealth();
 
+  const dotColor =
+    systemStatus === "healthy"
+      ? "var(--color-sage)"
+      : systemStatus === "unhealthy"
+        ? "var(--color-crimson)"
+        : "var(--color-ink-muted)";
+
+  const dotLabel =
+    systemStatus === "healthy"
+      ? "SYSTEMS ONLINE"
+      : systemStatus === "unhealthy"
+        ? "SYSTEMS OFFLINE"
+        : "CHECKING STATUS";
   const initials = (user?.displayName?.trim() || user?.email || "?")
     .slice(0, 2)
     .toUpperCase();
@@ -37,15 +52,37 @@ export default function AppShell() {
             <Terminal size={13} className="text-primary-foreground" />
           </div>
           <span style={{ fontFamily: "var(--font-display)", color: "var(--primary-foreground)", fontSize: 15, letterSpacing: "-0.02em" }}>
-            TracePilot<span style={{ textDecoration: "underline", textDecorationThickness: 2 }}>.AI</span>
+            TracePilot
           </span>
         </div>
 
         {/* Live indicator */}
-        <div className="border-b-2 border-black px-5 py-2.5 flex items-center gap-2" style={{ background: "#162D23" }}>
-          <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#A8D5A2", animation: "rawPulse 1.8s ease-in-out infinite" }} />
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "rgba(244,241,234,0.5)", letterSpacing: "0.1em" }}>
-            AUDITING PIPELINE LIVE
+        <div
+          className="border-b-2 border-black px-5 py-2.5 flex items-center gap-2"
+          style={{ background: "#162D23" }}
+        >
+          <span
+          style={{
+            width: 6,
+            height: 6,
+            borderRadius: "50%",
+            background: dotColor,
+            display: "inline-block",
+            animation:
+              systemStatus === "healthy"
+                ? "rawPulse 1.2s ease-in-out infinite"
+                : undefined,
+          }}
+        />
+          <span
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 9,
+              color: "rgba(244,241,234,0.5)",
+              letterSpacing: "0.1em",
+            }}
+          >
+            {dotLabel}
           </span>
         </div>
 
@@ -129,7 +166,7 @@ export default function AppShell() {
             style={{ fontFamily: "var(--font-body)", color: "rgba(244,241,234,0.6)" }}
           >
             <LogOut size={12} />
-            Sign out
+            Logout
           </Button>
         </div>
       </aside>
@@ -137,8 +174,6 @@ export default function AppShell() {
       <main className="flex-1 min-w-0">
         <Outlet />
       </main>
-
-      <style>{`@keyframes rawPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }`}</style>
     </div>
   );
 }

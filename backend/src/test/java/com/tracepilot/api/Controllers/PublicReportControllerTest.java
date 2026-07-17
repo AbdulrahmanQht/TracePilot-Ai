@@ -29,39 +29,50 @@ import com.tracepilot.api.Services.AuditService;
 @ExtendWith(MockitoExtension.class)
 class PublicReportControllerTest {
 
-    @Mock
-    private AuditService auditService;
+        @Mock
+        private AuditService auditService;
 
-    private MockMvc mockMvc;
+        private MockMvc mockMvc;
 
-    @BeforeEach
-    void setUp() {
-        PublicReportController controller = new PublicReportController(auditService);
-        mockMvc = MockMvcBuilders.standaloneSetup(controller)
-                .setControllerAdvice(new GlobalExceptionHandler())
-                .build();
-    }
+        @BeforeEach
+        void setUp() {
+                PublicReportController controller = new PublicReportController(auditService);
+                mockMvc = MockMvcBuilders.standaloneSetup(controller)
+                                .setControllerAdvice(new GlobalExceptionHandler())
+                                .build();
+        }
 
-    @Test
-    void getSharedReport_returnsAudit_whenTokenValid() throws Exception {
-        UUID auditId = UUID.randomUUID();
-        AuditResponse response = new AuditResponse(auditId, "Title", "tracepilot", "GENERIC",
-                AuditInputSource.PASTED_TEXT, AuditStatus.COMPLETE, 85, true, "token-abc", Instant.now(),
-                Instant.now(), List.of());
-        when(auditService.getSharedReport("token-abc")).thenReturn(response);
+        @Test
+        void getSharedReport_returnsAudit_whenTokenValid() throws Exception {
+                UUID auditId = UUID.randomUUID();
+                AuditResponse response = new AuditResponse(
+                                auditId,
+                                "Title",
+                                "tracepilot",
+                                "GENERIC",
+                                AuditInputSource.PASTED_TEXT,
+                                AuditStatus.COMPLETE,
+                                85,
+                                true,
+                                "token-abc",
+                                null, // failureReason
+                                Instant.now(),
+                                Instant.now(),
+                                List.of());
+                when(auditService.getSharedReport("token-abc")).thenReturn(response);
 
-        mockMvc.perform(get("/api/v1/shared/{token}", "token-abc"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.shareToken").value("token-abc"));
-    }
+                mockMvc.perform(get("/api/v1/shared/{token}", "token-abc"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.shareToken").value("token-abc"));
+        }
 
-    @Test
-    void getSharedReport_returns404_whenTokenUnknown() throws Exception {
-        when(auditService.getSharedReport("unknown-token"))
-                .thenThrow(new ApiException("Shared report not found", HttpStatus.NOT_FOUND));
+        @Test
+        void getSharedReport_returns404_whenTokenUnknown() throws Exception {
+                when(auditService.getSharedReport("unknown-token"))
+                                .thenThrow(new ApiException("Shared report not found", HttpStatus.NOT_FOUND));
 
-        mockMvc.perform(get("/api/v1/shared/{token}", "unknown-token"))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.message").value("Shared report not found"));
-    }
+                mockMvc.perform(get("/api/v1/shared/{token}", "unknown-token"))
+                                .andExpect(status().isNotFound())
+                                .andExpect(jsonPath("$.message").value("Shared report not found"));
+        }
 }

@@ -20,6 +20,7 @@ export const ChangePasswordRequestSchema = z.object({
 export type ChangePasswordRequest = z.infer<typeof ChangePasswordRequestSchema>;
 
 export const ForgotPasswordRequestSchema = z.object({ email: z.email() });
+export type ForgotPasswordRequest = z.infer<typeof ForgotPasswordRequestSchema>;
 
 export const ResetPasswordRequestSchema = z.object({
   token: z.string().min(1),

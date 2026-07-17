@@ -150,6 +150,15 @@
   @apply border-2 border-border;
 }
 
+@keyframes rawPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.2;
+  }
+}
+
 input[type="password"]::-ms-reveal,
 input[type="password"]::-ms-clear {
   display: none !important;

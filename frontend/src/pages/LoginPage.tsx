@@ -4,15 +4,17 @@ import { Github, Mail, Lock, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import AuthShell from "../components/AuthShell";
-import { useAuthContext } from "../context/AuthContext";
-import { LoginRequestSchema, type LoginRequest } from "../schemas/auth-requests";
-import type { ApiError } from "../schemas/error";
+import { useAuthContext } from "@/context/AuthContext";
+import { LoginRequestSchema, type LoginRequest } from "@/schemas/auth-requests";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
+import type { ApiError } from "@/schemas/error";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function LoginPage() {
+  useDocumentTitle("Login Page");
   const { login } = useAuthContext();
   const navigate = useNavigate();
   const [showPw, setShowPw] = useState(false);
@@ -54,10 +56,10 @@ export default function LoginPage() {
 
           <div className="border-b-2 border-black px-6 py-5 bg-primary">
             <h1 style={{ fontFamily: "var(--font-display)", color: "var(--primary-foreground)", fontSize: 22, letterSpacing: "-0.02em" }}>
-              Sign in
+              Login
             </h1>
             <p style={{ fontFamily: "var(--font-body)", color: "rgba(244,241,234,0.65)", fontSize: 13, marginTop: 4 }}>
-              to TracePilot.AI — your coding-agent auditor
+              to TracePilot
             </p>
           </div>
 
@@ -129,8 +131,8 @@ export default function LoginPage() {
               <Button type="submit" disabled={loading} variant="default"
                 className="w-full flex items-center justify-center gap-2 py-3">
                 {loading
-                  ? <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.1em" }}>SIGNING IN…</span>
-                  : <><span>Sign In</span><ArrowRight size={13} /></>}
+                  ? <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.1em" }}>Logging In…</span>
+                  : <><span>Login</span><ArrowRight size={13} /></>}
               </Button>
             </form>
           </div>

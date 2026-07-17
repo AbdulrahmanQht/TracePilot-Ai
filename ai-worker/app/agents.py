@@ -21,7 +21,7 @@ from app.prompt_guard import (
     screen_for_injection,
     InjectionScreenResult,
 )
-
+from app.scope_gate import enforce_scope, OutOfScopeError
 from app.trace_extractor import parse_and_isolate_trace
 from utils.logger import Logger
 
@@ -187,7 +187,19 @@ def run_audit(
     on_progress: Callable[[str, str], None] | None = None,
 ) -> dict:
     audit_started = time.perf_counter()
+    reinjection_screen = screen_for_injection(raw_trace)
+    if reinjection_screen.should_block:
+        logger.warn(
+            f"audit_rejected_injection_blocked severity={reinjection_screen.severity} "
+            f"patterns={reinjection_screen.matched_patterns}"
+        )
+        raise ValueError(
+            "Submission rejected: content strongly resembles a prompt-injection "
+            "attempt rather than a genuine execution trace."
+        )
 
+    enforce_scope(raw_trace, llm)
+    
     def notify(agent_type: str, status: str) -> None:
         if on_progress:
             on_progress(agent_type, status)

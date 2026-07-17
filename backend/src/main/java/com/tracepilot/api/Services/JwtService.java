@@ -40,6 +40,7 @@ public class JwtService {
         claims.put("displayName", user.getDisplayName());
 
         return Jwts.builder()
+                .id(java.util.UUID.randomUUID().toString())
                 .claims(claims)
                 .subject(user.getId().toString())
                 .issuer(ISSUER)

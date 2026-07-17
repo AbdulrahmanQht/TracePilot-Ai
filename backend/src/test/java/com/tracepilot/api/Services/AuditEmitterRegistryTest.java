@@ -24,8 +24,20 @@ class AuditEmitterRegistryTest {
     }
 
     private AuditResponse sampleResponse(UUID id, AuditStatus status) {
-        return new AuditResponse(id, "Title", "tracepilot", "GENERIC", AuditInputSource.PASTED_TEXT,
-                status, null, false, null, Instant.now(), null, List.of());
+        return new AuditResponse(
+                id,
+                "Title",
+                "tracepilot",
+                "GENERIC",
+                AuditInputSource.PASTED_TEXT,
+                status,
+                null,
+                false,
+                null, // shareToken
+                null, // failureReason
+                Instant.now(),
+                null,
+                List.of());
     }
 
     @Test

@@ -43,7 +43,7 @@ class OAuth2LoginSuccessHandlerTest {
 
     @BeforeEach
     void setUp() {
-        JwtConfig jwtConfig = new JwtConfig("secret", 900_000L, 7);
+        JwtConfig jwtConfig = new JwtConfig("secret", 900_000L, 7, true);
         handler = new OAuth2LoginSuccessHandler(authService, jwtService, jwtConfig, refreshTokenService);
         ReflectionTestUtils.setField(handler, "frontendUrl", "http://localhost:5173");
     }
