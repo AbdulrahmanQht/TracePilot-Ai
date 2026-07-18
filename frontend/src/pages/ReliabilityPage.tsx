@@ -27,11 +27,17 @@ function formatEnumLabel(v: string): string {
 type CustomTooltipProps = {
   active?: boolean;
   payload?: Payload<ValueType, NameType>[];
-  label?: string;
+  label?: number;
 };
 
+function formatTimestamp(ts: number): string {
+  return new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
 function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
-  if (!active || !payload?.length) return null;
+  if (!active || !payload?.length || label == null) return null;
+
+  const dateLabel = formatTimestamp(label);
 
   return (
     <div
@@ -46,7 +52,7 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
           marginBottom: 6,
         }}
       >
-        {label}
+        {dateLabel}
       </p>
 
       {payload.map((p) => (
@@ -138,7 +144,7 @@ export default function ReliabilityPage() {
       .slice()
       .sort((a, b) => a.recordedAt.localeCompare(b.recordedAt))
       .map((r) => ({
-        date: new Date(r.recordedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+        timestamp: new Date(r.recordedAt).getTime(),
         score: r.reliabilityScore,
       }));
   }, [series]);
@@ -148,7 +154,6 @@ export default function ReliabilityPage() {
     : null;
   const trend = chartData.length >= 2 ? chartData.at(-1)!.score - chartData[0]!.score : 0;
 
-  // Latest score per repo, scoped to the selected tool, one query per repo.
   const perRepoQueries = useQueries({
     queries: repoOptions.map((r) => ({
       queryKey: reliabilityKeys.trend({ repoName: r, agentTool: effectiveTool, limit: 5 }),
@@ -226,7 +231,10 @@ export default function ReliabilityPage() {
                 <LineChart data={chartData} margin={{ top: 4, right: 16, bottom: 4, left: -8 }}>
                   <CartesianGrid stroke="var(--muted)" strokeWidth={1} vertical={false} />
                   <XAxis
-                    dataKey="date"
+                    dataKey="timestamp"
+                    type="number"
+                    domain={["dataMin", "dataMax"]}
+                    tickFormatter={formatTimestamp}
                     tick={{ fontFamily: "var(--font-mono)", fontSize: 10, fill: "var(--muted-foreground)" }}
                     tickLine={false} axisLine={{ stroke: "var(--foreground)", strokeWidth: 2 }}
                   />

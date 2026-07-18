@@ -65,7 +65,7 @@ export default function SubmitPage() {
     },
   });
 
-  const { data: recentAuditsPage } = useAuditList({ page: 0, size: 3 });
+  const { data: recentAuditsPage } = useAuditList({ page: 0, size: 4, sort: "createdAt,desc" });
   const recentAudits = recentAuditsPage?.content ?? [];
 
   const { data: currentUser } = useCurrentUser();

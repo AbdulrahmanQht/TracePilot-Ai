@@ -11,6 +11,8 @@ const ResetPasswordPage = lazy(() => import("@/pages/ResetPasswordPage"));
 const OAuthRedirectPage = lazy(() => import("@/pages/OAuthRedirectPage"));
 const SharedReportPage = lazy(() => import("@/pages/SharedReportPage"));
 const NotFoundPage = lazy(() => import("@/pages/NotFoundPage"));
+const EmailVerifiedPage = lazy(() => import("@/pages/EmailVerifiedPage"));
+
 
 const AppShell = lazy(() => import("@/components/AppShell"));
 const SubmitPage = lazy(() => import("@/pages/SubmitPage"));
@@ -36,6 +38,7 @@ return (
 
             {/* Public, no auth*/}
             <Route path="/oauth2/redirect" element={<OAuthRedirectPage />} />
+            <Route path="/email-verified" element={<EmailVerifiedPage />} />
             <Route path="/shared/:token" element={<SharedReportPage />} />
 
             {/* Authenticated app */}

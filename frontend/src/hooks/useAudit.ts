@@ -10,6 +10,7 @@ import type { ApiError } from "../schemas/error";
 interface PaginationParams {
   page?: number;
   size?: number;
+  sort?: string;
 }
 
 export const auditKeys = {

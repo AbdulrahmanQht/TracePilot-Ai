@@ -199,7 +199,7 @@ def run_audit(
         )
 
     enforce_scope(raw_trace, llm)
-    
+
     def notify(agent_type: str, status: str) -> None:
         if on_progress:
             on_progress(agent_type, status)
@@ -260,7 +260,7 @@ def run_audit(
     blind_report: BlindOutcomeReport = results["blind"]
     trend_report: ReliabilityTrendReport = results["reliability"]
 
-    overall = round(
+    avg_severity = round(
         (
             loop_report.severity_score
             + blind_report.severity_score
@@ -268,6 +268,7 @@ def run_audit(
         )
         / 3
     )
+    overall = 100 - avg_severity
 
     security_flags = {
         "injection_suspected": upstream_suspicious or screening.suspicious,

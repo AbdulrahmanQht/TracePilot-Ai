@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { Search, Filter, Clock, ChevronRight, ChevronLeft, Bot } from "lucide-react";
 import { useAuditList } from "@/hooks/useAudit";
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 const PAGE_SIZE = 7;
+const FILTERED_FETCH_SIZE = 1000;
 
 const STATUS_OPTS = ["ALL", ...AuditStatusSchema.options] as const;
 const TOOL_OPTS = ["ALL", ...AgentToolTypeSchema.options] as const;
@@ -60,30 +61,72 @@ export default function HistoryPage() {
   const [status, setStatus] = useState<(typeof STATUS_OPTS)[number]>("ALL");
   const [tool, setTool] = useState<(typeof TOOL_OPTS)[number]>("ALL");
   const [page, setPage] = useState(0);
+  // Separate page cursor used only while a filter is active, so switching
+  // filters on/off doesn't fight over the same page index.
+  const [filteredPage, setFilteredPage] = useState(0);
 
-  const { data, isLoading, isError } = useAuditList({ page, size: PAGE_SIZE });
+  const hasFilters = search.trim() !== "" || status !== "ALL" || tool !== "ALL";
+
+  const { data, isLoading, isError } = useAuditList(
+    hasFilters ? { page: 0, size: FILTERED_FETCH_SIZE } : { page, size: PAGE_SIZE }
+  );
   const audits = data?.content ?? [];
-  
+
+  function updateSearch(value: string) {
+    setSearch(value);
+    setFilteredPage(0);
+  }
+
+  function updateStatus(value: (typeof STATUS_OPTS)[number]) {
+    setStatus(value);
+    setFilteredPage(0);
+  }
+
+  function updateTool(value: (typeof TOOL_OPTS)[number]) {
+    setTool(value);
+    setFilteredPage(0);
+  }
+
   const filtered = useMemo(() => {
-  const searchTerm = search.toLowerCase();
+    const searchTerm = search.toLowerCase();
 
-  return audits.filter((a) => {
-    const displayTitle = getAuditTitle(a);
+    return audits.filter((a) => {
+      const displayTitle = getAuditTitle(a);
 
-    if (status !== "ALL" && a.status !== status) return false;
-    if (tool !== "ALL" && a.agentTool !== tool) return false;
+      if (status !== "ALL" && a.status !== status) return false;
+      if (tool !== "ALL" && a.agentTool !== tool) return false;
 
-    if (
-      search &&
-      !displayTitle.toLowerCase().includes(searchTerm) &&
-      !a.repoName?.toLowerCase().includes(searchTerm)
-    ) {
-      return false;
-    }
+      if (
+        search &&
+        !displayTitle.toLowerCase().includes(searchTerm) &&
+        !a.repoName?.toLowerCase().includes(searchTerm)
+      ) {
+        return false;
+      }
 
-    return true;
-  });
-}, [audits, status, tool, search]);
+      return true;
+    });
+  }, [audits, status, tool, search]);
+
+
+  const visible = hasFilters
+    ? filtered.slice(filteredPage * PAGE_SIZE, filteredPage * PAGE_SIZE + PAGE_SIZE)
+    : filtered;
+
+  const totalPages = hasFilters ? Math.ceil(filtered.length / PAGE_SIZE) : (data?.totalPages ?? 0);
+  const currentPageNumber = hasFilters ? filteredPage : (data?.number ?? 0);
+  const canGoPrev = currentPageNumber > 0;
+  const canGoNext = currentPageNumber + 1 < totalPages;
+
+  function goPrev() {
+    if (hasFilters) setFilteredPage((p) => Math.max(0, p - 1));
+    else setPage((p) => Math.max(0, p - 1));
+  }
+
+  function goNext() {
+    if (hasFilters) setFilteredPage((p) => p + 1);
+    else setPage((p) => p + 1);
+  }
 
   const stats = useMemo(() => {
     const complete = audits.filter((a) => a.status === "COMPLETE").length;
@@ -106,7 +149,7 @@ export default function HistoryPage() {
             Audit History
           </h1>
           <Badge variant="muted" className="font-mono text-xs">
-            {data?.totalElements ?? 0} total
+            {hasFilters ? filtered.length : (data?.totalElements ?? 0)} total
           </Badge>
         </div>
         <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--muted-foreground)" }}>
@@ -128,8 +171,8 @@ export default function HistoryPage() {
               <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
               <Input
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search this page by title or repo…"
+                onChange={(e) => updateSearch(e.target.value)}
+                placeholder="Search by title or repo…"
                 className="pl-9 bg-card"
               />
             </div>
@@ -148,7 +191,7 @@ export default function HistoryPage() {
                 <Button
                   key={s}
                   variant={status === s ? "default" : "outline"}
-                  onClick={() => setStatus(s)}
+                  onClick={() => updateStatus(s)}
                   className="h-auto py-1.5 px-3 text-xs"
                 >
                   {s}
@@ -170,7 +213,7 @@ export default function HistoryPage() {
                 <Button
                   key={t}
                   variant={tool === t ? "secondary" : "outline"}
-                  onClick={() => setTool(t)}
+                  onClick={() => updateTool(t)}
                   className="h-auto py-1.5 px-3 text-[10px]"
                 >
                   {t === "ALL" ? "ALL" : formatEnumLabel(t)}
@@ -211,7 +254,7 @@ export default function HistoryPage() {
             </div>
           )}
 
-          {!isLoading && !isError && filtered.length === 0 && (
+          {!isLoading && !isError && visible.length === 0 && (
             <div className="px-6 py-12 text-center">
               <p style={{ fontFamily: "var(--font-body)", color: "var(--muted-foreground)", fontSize: 14 }}>
                 No audits match your filters.
@@ -219,9 +262,9 @@ export default function HistoryPage() {
             </div>
           )}
 
-          {!isLoading && !isError && filtered.length > 0 && (
+          {!isLoading && !isError && visible.length > 0 && (
             <div className="divide-y-2 divide-black/10">
-              {filtered.map((a) => {
+              {visible.map((a) => {
                 const verdict = deriveVerdict(a.reports);
                 return (
                   <button
@@ -286,25 +329,25 @@ export default function HistoryPage() {
             </div>
           )}
 
-          {data && data.totalPages > 1 && (
+          {totalPages > 1 && (
             <div className="border-t-2 border-black px-5 py-3 flex items-center justify-between">
               <Button
                 variant="outline"
                 size="sm"
-                disabled={page === 0}
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={!canGoPrev}
+                onClick={goPrev}
                 className="flex items-center gap-1"
               >
                 <ChevronLeft size={12} /> Prev
               </Button>
               <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted-foreground)" }}>
-                Page {data.number + 1} of {data.totalPages}
+                Page {currentPageNumber + 1} of {totalPages}
               </span>
               <Button
                 variant="outline"
                 size="sm"
-                disabled={page + 1 >= data.totalPages}
-                onClick={() => setPage((p) => p + 1)}
+                disabled={!canGoNext}
+                onClick={goNext}
                 className="flex items-center gap-1"
               >
                 Next <ChevronRight size={12} />
@@ -315,7 +358,7 @@ export default function HistoryPage() {
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "TOTAL (this page)", value: audits.length },
+            { label: hasFilters ? "MATCHES" : "TOTAL (this page)", value: hasFilters ? filtered.length : audits.length },
             { label: "COMPLETE", value: stats.complete },
             { label: "FAILED", value: stats.failed },
             { label: "AVG SCORE", value: stats.avg ?? "—" },

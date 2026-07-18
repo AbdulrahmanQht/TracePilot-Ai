@@ -1,5 +1,10 @@
 package com.tracepilot.api.Controllers;
 
+import java.time.Duration;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.restclient.RestTemplateBuilder;
@@ -11,10 +16,6 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
-import java.time.Duration;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -35,8 +36,8 @@ public class HealthController {
         this.jdbcTemplate = jdbcTemplate;
         this.rabbitConnectionFactory = rabbitConnectionFactory;
         this.restTemplate = new RestTemplateBuilder()
-                .connectTimeout(Duration.ofSeconds(2))
-                .readTimeout(Duration.ofSeconds(2))
+                .connectTimeout(Duration.ofSeconds(10))
+                .readTimeout(Duration.ofSeconds(10))
                 .build();
     }
 
@@ -79,6 +80,7 @@ public class HealthController {
             Integer result = jdbcTemplate.queryForObject("SELECT 1", Integer.class);
             return result != null && result == 1;
         } catch (Exception e) {
+            log.warn("Database health check failed", e);
             return false;
         }
     }
@@ -88,6 +90,7 @@ public class HealthController {
             restTemplate.getForEntity(workerHealthUrl, String.class);
             return true;
         } catch (RestClientException e) {
+            log.warn("Worker health check failed (url={})", workerHealthUrl, e);
             return false;
         }
     }
@@ -96,6 +99,7 @@ public class HealthController {
         try (var connection = rabbitConnectionFactory.createConnection()) {
             return connection.isOpen();
         } catch (Exception e) {
+            log.warn("RabbitMQ health check failed", e);
             return false;
         }
     }
@@ -105,6 +109,7 @@ public class HealthController {
             restTemplate.getForEntity(jaegerHealthUrl, String.class);
             return true;
         } catch (RestClientException e) {
+            log.warn("Tracing health check failed (url={})", jaegerHealthUrl, e);
             return false;
         }
     }

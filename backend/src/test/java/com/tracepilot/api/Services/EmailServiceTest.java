@@ -9,72 +9,84 @@ import static org.mockito.ArgumentMatchers.any;
 import org.mockito.Mock;
 import static org.mockito.Mockito.verify;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
+import static org.mockito.Mockito.when;
+
+import com.resend.Resend;
+import com.resend.services.emails.Emails;
+import com.resend.services.emails.model.CreateEmailOptions;
+import com.resend.services.emails.model.CreateEmailResponse;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class EmailServiceTest {
 
-    @Mock
-    private JavaMailSender mailSender;
+        @Mock
+        private Resend resend;
 
-    private EmailService emailService;
+        @Mock
+        private Emails emails;
 
-    @BeforeEach
-    void setUp() {
-        emailService = new EmailService(mailSender);
+        private EmailService emailService;
 
-        ReflectionTestUtils.setField(
-                emailService,
-                "backendUrl",
-                "https://api.tracepilot.test");
+        @BeforeEach
+        void setUp() {
+                when(resend.emails()).thenReturn(emails);
 
-        ReflectionTestUtils.setField(
-                emailService,
-                "frontendUrl",
-                "https://tracepilot.test");
-    }
+                emailService = new EmailService(resend);
 
-    @Test
-    void sendVerificationEmail_sendsMessageWithCorrectRecipientAndLink() {
-        ArgumentCaptor<SimpleMailMessage> captor = ArgumentCaptor.forClass(SimpleMailMessage.class);
+                ReflectionTestUtils.setField(
+                                emailService,
+                                "backendUrl",
+                                "https://api.tracepilot.test");
 
-        emailService.sendVerificationEmail("abdulrahman@example.com", "verify-token-123");
+                ReflectionTestUtils.setField(
+                                emailService,
+                                "frontendUrl",
+                                "https://tracepilot.test");
+        }
 
-        verify(mailSender).send(captor.capture());
-        SimpleMailMessage message = captor.getValue();
+        @Test
+        void sendVerificationEmail_sendsMessageWithCorrectRecipientAndLink() throws Exception {
 
-        assertThat(message.getTo()).containsExactly("abdulrahman@example.com");
-        assertThat(message.getSubject()).isEqualTo("Verify your email");
-        assertThat(message.getText())
-                .contains("https://api.tracepilot.test/api/v1/auth/verify-email?token=verify-token-123");
-    }
+                when(emails.send(any(CreateEmailOptions.class)))
+                                .thenReturn(new CreateEmailResponse("email-id"));
 
-    @Test
-    void sendPasswordResetEmail_sendsMessageWithCorrectRecipientAndLink() {
-        ArgumentCaptor<SimpleMailMessage> captor = ArgumentCaptor.forClass(SimpleMailMessage.class);
+                emailService.sendVerificationEmail(
+                                "abdulrahman@example.com",
+                                "verify-token-123");
 
-        emailService.sendPasswordResetEmail(
-                "abdulrahman@example.com",
-                "reset-token-456");
+                ArgumentCaptor<CreateEmailOptions> captor = ArgumentCaptor.forClass(CreateEmailOptions.class);
 
-        verify(mailSender).send(captor.capture());
-        SimpleMailMessage message = captor.getValue();
+                verify(emails).send(captor.capture());
 
-        assertThat(message.getTo()).containsExactly("abdulrahman@example.com");
-        assertThat(message.getSubject()).isEqualTo("Reset your password");
-        assertThat(message.getText())
-                .contains("https://tracepilot.test/reset-password?token=reset-token-456");
-    }
+                CreateEmailOptions options = captor.getValue();
 
-    @Test
-    void sendVerificationEmail_propagatesMailExceptionsToTheCaller() {
-        org.mockito.Mockito.doThrow(new org.springframework.mail.MailSendException("SMTP unreachable"))
-                .when(mailSender).send(any(SimpleMailMessage.class));
+                assertThat(options.getTo()).containsExactly("abdulrahman@example.com");
+                assertThat(options.getSubject()).isEqualTo("Verify your email");
+                assertThat(options.getHtml())
+                                .contains("https://api.tracepilot.test/api/v1/auth/verify-email?token=verify-token-123");
+        }
 
-        org.assertj.core.api.Assertions.assertThatThrownBy(
-                () -> emailService.sendVerificationEmail("a@b.com", "token"))
-                .isInstanceOf(org.springframework.mail.MailException.class);
-    }
+        @Test
+        void sendPasswordResetEmail_sendsMessageWithCorrectRecipientAndLink() throws Exception {
+
+                when(emails.send(any(CreateEmailOptions.class)))
+                                .thenReturn(new CreateEmailResponse("email-id"));
+
+                emailService.sendPasswordResetEmail(
+                                "abdulrahman@example.com",
+                                "reset-token-456");
+
+                ArgumentCaptor<CreateEmailOptions> captor = ArgumentCaptor.forClass(CreateEmailOptions.class);
+
+                verify(emails).send(captor.capture());
+
+                CreateEmailOptions options = captor.getValue();
+
+                assertThat(options.getTo()).containsExactly("abdulrahman@example.com");
+                assertThat(options.getSubject()).isEqualTo("Reset your password");
+                assertThat(options.getHtml())
+                                .contains("https://tracepilot.test/reset-password?token=reset-token-456");
+        }
+
 }

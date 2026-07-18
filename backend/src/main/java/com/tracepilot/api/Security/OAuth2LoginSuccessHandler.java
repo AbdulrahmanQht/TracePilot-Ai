@@ -99,7 +99,7 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
         return ResponseCookie.from(REFRESH_COOKIE, rawToken)
                 .httpOnly(true)
                 .secure(jwtConfig.cookieSecure())
-                .sameSite("Strict")
+                .sameSite("None")
                 .path("/api/v1/auth")
                 .maxAge(Duration.ofDays(jwtConfig.refreshExpiryDays()))
                 .build();

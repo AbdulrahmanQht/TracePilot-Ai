@@ -17,7 +17,11 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import jakarta.validation.Valid;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import org.springframework.web.util.UriComponentsBuilder;
 
+import org.springframework.beans.factory.annotation.Value;
 import com.tracepilot.api.Security.AuthenticatedUser;
 import com.tracepilot.api.Config.JwtConfig;
 import com.tracepilot.api.DTO.Request.LoginRequest;
@@ -38,6 +42,9 @@ import lombok.extern.slf4j.Slf4j;
 @RequestMapping("api/v1/auth")
 public class AuthController {
     private static final String REFRESH_COOKIE = "refreshToken";
+
+    @Value("${tracepilot.frontend.url:http://localhost:5173}")
+    private String frontendUrl;
 
     private final AuthService authService;
     private final JwtConfig jwtConfig;
@@ -102,10 +109,19 @@ public class AuthController {
     }
 
     @GetMapping("/verify-email")
-    public ResponseEntity<Void> verifyEmail(@RequestParam String token) {
+    public void verifyEmail(@RequestParam String token, HttpServletResponse response) throws IOException {
         log.info("Email verification request received");
-        authService.verifyEmail(token);
-        return ResponseEntity.ok().build();
+        boolean success;
+        try {
+            authService.verifyEmail(token);
+            success = true;
+        } catch (ApiException e) {
+            success = false;
+        }
+        String targetUrl = UriComponentsBuilder.fromUriString(frontendUrl + "/email-verified")
+                .queryParam("status", success ? "success" : "error")
+                .build().toUriString();
+        response.sendRedirect(targetUrl);
     }
 
     @PostMapping("/resend-verification")
@@ -151,13 +167,13 @@ public class AuthController {
 
         return ResponseEntity.noContent().build();
     }
-    
+
     private ResponseCookie buildCookie(String rawToken) {
         log.info("Cookie secure = {}", jwtConfig.cookieSecure());
         return ResponseCookie.from(REFRESH_COOKIE, rawToken)
                 .httpOnly(true)
                 .secure(jwtConfig.cookieSecure())
-                .sameSite("Strict")
+                .sameSite("None")
                 .path("/api/v1/auth")
                 .maxAge(Duration.ofDays(jwtConfig.refreshExpiryDays()))
                 .build();
@@ -165,6 +181,6 @@ public class AuthController {
 
     private ResponseCookie clearCookie() {
         return ResponseCookie.from(REFRESH_COOKIE, "")
-                .httpOnly(true).secure(true).sameSite("Strict").path("/api/v1/auth").maxAge(0).build();
+                .httpOnly(true).secure(true).sameSite("None").path("/api/v1/auth").maxAge(0).build();
     }
 }

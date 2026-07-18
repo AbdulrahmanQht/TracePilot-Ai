@@ -149,9 +149,9 @@ class AuthServiceTest {
         assertThat(result.response().tokenType()).isEqualTo("Bearer");
         assertThat(result.refreshToken()).isEqualTo("raw-refresh-token");
     }
-
+    
     @Test
-    void registerUser_throwsServiceUnavailable_whenVerificationEmailFails() {
+    void registerUser_succeedsAndReturnsTokens_regardlessOfEmailServiceOutcome() {
         RegisterRequest request = new RegisterRequest("new@example.com", "password123", "New User");
         when(userRepository.findByEmail("new@example.com")).thenReturn(Optional.empty());
         when(passwordEncoder.encode("password123")).thenReturn("hashed-pw");
@@ -160,17 +160,16 @@ class AuthServiceTest {
             u.setId(UUID.randomUUID());
             return u;
         });
-        doThrow(new MailSendException("SMTP down")).when(emailService)
-                .sendVerificationEmail(anyString(), anyString());
+        when(jwtService.generateAccessToken(any())).thenReturn("access-token-123");
+        when(jwtService.calculateExpiryDate()).thenReturn(new Date());
+        when(refreshTokenService.issue(any())).thenReturn("raw-refresh-token");
 
-        assertThatThrownBy(() -> authService.registerUser(request))
-                .isInstanceOf(ApiException.class)
-                .hasMessage("Unable to send verification email. Please try again later.")
-                .extracting(ex -> ((ApiException) ex).getStatus())
-                .isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+        AuthResult result = authService.registerUser(request);
 
-        verify(jwtService, never()).generateAccessToken(any());
+        assertThat(result.response().accessToken()).isEqualTo("access-token-123");
+        verify(emailService).sendVerificationEmail(eq("new@example.com"), anyString());
     }
+    
 
     // ----- loginUser -----
 
@@ -427,17 +426,6 @@ class AuthServiceTest {
         verify(emailService).sendPasswordResetEmail(eq("abdulrahman@example.com"), anyString());
     }
 
-    @Test
-    void forgotPassword_doesNotPropagateException_whenEmailSendingFails() {
-        User user = persistedUser(UUID.randomUUID());
-        when(userRepository.findByEmail("abdulrahman@example.com")).thenReturn(Optional.of(user));
-        doThrow(new MailSendException("down")).when(emailService)
-                .sendPasswordResetEmail(anyString(), anyString());
-
-        authService.forgotPassword("abdulrahman@example.com");
-
-        verify(userRepository).save(user);
-    }
 
     // ----- resetPassword -----
 

@@ -7,7 +7,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.mail.MailException;
 
 import com.tracepilot.api.DTO.Request.LoginRequest;
 import com.tracepilot.api.DTO.Request.RegisterRequest;
@@ -65,16 +64,9 @@ public class AuthService {
         User savedUser = userRepository.save(user);
         log.info("User registered in database with ID: {}", savedUser.getId());
 
-        try {
-            log.debug("Sending user a verification email...");
-            emailService.sendVerificationEmail(savedUser.getEmail(), verificationToken);
-            log.info("Sent an email to User with ID: {}", savedUser.getId());
-        } catch (MailException e) {
-            log.error("Failed to send verification email to user {}", savedUser.getId(), e);
-            throw new ApiException(
-                    "Unable to send verification email. Please try again later.",
-                    HttpStatus.SERVICE_UNAVAILABLE);
-        }
+        log.debug("Dispatching verification email...");
+        emailService.sendVerificationEmail(savedUser.getEmail(), verificationToken);
+        log.info("Verification email dispatch triggered for user ID: {}", savedUser.getId());
 
         log.debug("Generating token access for {}", savedUser.getId());
         String accessToken = jwtService.generateAccessToken(savedUser);
@@ -261,11 +253,7 @@ public class AuthService {
             user.setResetPasswordTokenExpiresAt(Instant.now().plus(1, ChronoUnit.HOURS));
             userRepository.save(user);
 
-            try {
-                emailService.sendPasswordResetEmail(user.getEmail(), resetToken);
-            } catch (MailException e) {
-                log.error("Failed to send password reset email to user {}", user.getId(), e);
-            }
+            emailService.sendPasswordResetEmail(user.getEmail(), resetToken);
         });
 
         log.info("Password reset requested for email: {}", normalizedEmail);
@@ -318,16 +306,9 @@ public class AuthService {
 
         userRepository.save(user);
 
-        try {
-            emailService.sendVerificationEmail(
-                    user.getEmail(),
-                    verificationToken);
-        } catch (MailException e) {
-            log.error("Failed to resend verification email to user {}", user.getId(), e);
-            throw new ApiException(
-                    "Unable to send verification email. Please try again later.",
-                    HttpStatus.SERVICE_UNAVAILABLE);
-        }
+        emailService.sendVerificationEmail(
+                user.getEmail(),
+                verificationToken);
 
         log.info("Verification email resent for user {}", user.getId());
     }

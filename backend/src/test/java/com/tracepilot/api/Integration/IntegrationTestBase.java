@@ -7,7 +7,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.resttestclient.TestRestTemplate;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.context.annotation.Import;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.tracepilot.api.TestcontainersConfiguration;
@@ -39,8 +38,6 @@ public abstract class IntegrationTestBase {
     @Autowired
     protected ReliabilityHistoryRepository reliabilityHistoryRepository;
 
-    @MockitoBean
-    protected JavaMailSender javaMailSender;
 
     @AfterEach
     void drainTestQueues() {
