@@ -1,5 +1,7 @@
 # TracePilot AI
 
+**Live app:** [https://trace-pilot.dev/](https://trace-pilot.dev/)
+
 Multi-agent system for auditing AI coding-agent execution traces. A developer pastes a raw transcript, terminal log, PR/CI bundle, or tool-call trace from a coding agent (Claude Code, Codex, Cursor, or similar), and the system returns a structured report on how the agent behaved and whether its outcome claim holds up against the observable evidence.
 
 ## Core Idea
@@ -12,12 +14,12 @@ A key structural feature is the Blind Outcome Verifier: it receives only observa
 
 Three decoupled services connected by a durable message queue, with distributed tracing across the backend services.
 
-- **Frontend** (`frontend/`) — React SPA (Vite, Bun, TypeScript) for trace submission, live audit status, report dashboards, and reliability trend charts.
-- **Orchestrator** (`backend/`) — Spring Boot 3.x, Java 21. Handles authentication, request validation, rate limiting, trace hashing/caching, persistence, and job dispatch.
-- **AI Worker** (`ai-worker/`) — FastAPI + CrewAI, Python 3.11+. Runs three concurrent agents against a submitted trace and publishes a structured result back to the orchestrator. Not exposed to the public internet.
-- **RabbitMQ** — durable queue between the orchestrator and the AI worker (`audit.jobs`, `audit.jobs.dlq`, `audit.results`), forming the core dispatch path instead of a direct HTTP call between the two services.
-- **PostgreSQL** — single source of truth for users, audits, reports, and reliability history. The AI worker has no direct database access.
-- **Jaeger** — collects OpenTelemetry (OTLP) spans from the orchestrator and the AI worker into one merged trace per audit request.
+- **Frontend:** (`frontend/`) React SPA (Vite, Bun, TypeScript) for trace submission, live audit status, report dashboards, and reliability trend charts.
+- **Orchestrator:** (`backend/`) Spring Boot 3.x, Java 21. Handles authentication, request validation, rate limiting, trace hashing/caching, persistence, and job dispatch.
+- **AI Worker:** (`ai-worker/`) FastAPI + CrewAI, Python 3.11+. Runs three concurrent agents against a submitted trace and publishes a structured result back to the orchestrator. Not exposed to the public internet.
+- **RabbitMQ:** durable queue between the orchestrator and the AI worker (`audit.jobs`, `audit.jobs.dlq`, `audit.results`), forming the core dispatch path instead of a direct HTTP call between the two services.
+- **PostgreSQL:** single source of truth for users, audits, reports, and reliability history. The AI worker has no direct database access.
+- **Jaeger:** collects OpenTelemetry (OTLP) spans from the orchestrator and the AI worker into one merged trace per audit request.
 
 
 ## Tech Stack
@@ -37,22 +39,21 @@ tracepilot-ai/
   frontend/     React SPA (tracepilot-web)
   backend/      Spring Boot orchestrator (tracepilot-api)
   ai-worker/    FastAPI + CrewAI worker (tracepilot-worker)
-  infra/        Deployment configuration (Render, Vercel, GitHub Actions)
 ```
 
 ## Core Endpoints
 
 | Method | Endpoint | Description |
 |---|---|---|
-| POST | `/api/auth/register` | Create account |
-| POST | `/api/auth/login` | Email/password login |
-| POST | `/api/auth/refresh` | Issue new access token from refresh cookie |
-| POST | `/api/audits` | Submit a trace for analysis |
-| GET | `/api/audits/{id}` | Fetch status and completed report |
-| GET | `/api/audits` | List current user's audit history |
-| GET | `/api/reliability` | Reliability trend grouped by repo and agent tool |
-| POST | `/api/audits/{id}/share` | Create public share token |
-| GET | `/api/shared/{token}` | Fetch public read-only report |
+| POST | `/api/v1/auth/register` | Create account |
+| POST | `/api/v1/auth/login` | Email/password login |
+| POST | `/api/v1/auth/refresh` | Issue new access token from refresh cookie |
+| POST | `/api/v1/audits` | Submit a trace for analysis |
+| GET | `/api/v1/audits/{id}` | Fetch status and completed report |
+| GET | `/api/v1/audits` | List current user's audit history |
+| GET | `/api/v1/reliability` | Reliability trend grouped by repo and agent tool |
+| POST | `/api/v1/audits/{id}/share` | Create public share token |
+| GET | `/api/v1/shared/{token}` | Fetch public read-only report |
 
 The only required field on audit submission is `rawTrace`. Title, agent tool, repo name, and input source are optional and improve report quality when present.
 
@@ -62,7 +63,7 @@ Requires Docker, Bun, Java 21, and Python 3.11+.
 
 ```bash
 # Start PostgreSQL, RabbitMQ, and Jaeger
-docker compose up -d postgres rabbitmq jaeger
+docker compose up -d db rabbitmq jaeger
 
 # Backend
 cd backend && ./gradlew bootRun

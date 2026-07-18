@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router";
-import { Mail, ArrowRight, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { Mail, ArrowRight, ArrowLeft, CheckCircle2, Info } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import AuthShell from "../components/AuthShell";
@@ -10,6 +10,7 @@ import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 
 export default function ForgotPasswordPage() {
   useDocumentTitle("Forgot Password");
@@ -59,6 +60,39 @@ export default function ForgotPasswordPage() {
                 <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--muted-foreground)" }}>
                   Check your inbox. The link expires in 1 hour.
                 </p>
+
+                {/* Desktop: hover tooltip */}
+                <div className="hidden md:flex justify-center">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <button
+                            type="button"
+                            className="flex items-center gap-1.5 border-2 border-black/20 px-3 py-1.5 hover:border-black/40"
+                          />
+                        }
+                      >
+                        <Info size={12} className="text-muted-foreground shrink-0" />
+                        <span style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "var(--muted-foreground)" }}>
+                          Don&apos;t see the email?
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        Check your spam/junk folder. Our emails are sent from noreply@trace-pilot.dev
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+
+                {/* Mobile: always-visible hint (touch has no hover to reveal a tooltip) */}
+                <div className="flex md:hidden mx-auto max-w-[320px] items-start gap-2 border-2 border-black/20 bg-muted px-3 py-2 text-left">
+                  <Info size={13} className="text-muted-foreground shrink-0 mt-0.5" />
+                  <span style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "var(--muted-foreground)" }}>
+                    Don&apos;t see it? Check your spam/junk folder. Our emails are sent from{" "}
+                    <span style={{ fontFamily: "var(--font-mono)" }}>noreply@trace-pilot.dev</span>
+                  </span>
+                </div>
               </div>
             ) : (
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-3" noValidate>

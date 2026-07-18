@@ -1,15 +1,15 @@
-// src/pages/AuditDetailPage.tsx
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft, Share2, Zap, Terminal, BarChart2,
-  XCircle, Copy, CheckCircle, Link2Off, RefreshCw
+  XCircle, Copy, CheckCircle, Link2Off, RefreshCw, Info
 } from "lucide-react";
 import { useAudit, useShareAudit, useRevokeShareLink, useRetryAudit, auditKeys } from "@/hooks/useAudit";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import {
   parseAgentFindings,
   type LoopEfficiencyFindings,
@@ -48,15 +48,80 @@ function formatEnumLabel(v: string): string {
     .join(" ");
 }
 
+const OVERALL_SCORE_HINT =
+  "Trust score for this audit, 0–100. Higher is better: 70+ is Trustworthy, 40–69 is Uncertain, below 40 is Unreliable.";
+
+const SEVERITY_SCORE_HINT =
+  "Severity score for this agent, 0–100. This runs the opposite direction from the trust score above: higher means more/worse issues found, 0 means nothing wrong was found.";
+
+// Desktop: hover icon with tooltip. Mobile: no hover, so render an
+// always-visible caption instead (tooltips don't work on touch).
+function ScoreHintIcon({ text }: { text: string }) {
+  return (
+    <div className="hidden md:inline-flex">
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <button
+                type="button"
+                className="inline-flex items-center justify-center text-muted-foreground hover:text-foreground"
+              />
+            }
+          >
+            <Info size={13} />
+          </TooltipTrigger>
+          <TooltipContent>{text}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    </div>
+  );
+}
+
+function ScoreHintMobile({ text, className = "" }: { text: string; className?: string }) {
+  return (
+    <div className={`flex md:hidden items-start gap-1.5 mt-1 ${className}`}>
+      <Info size={11} className="text-muted-foreground shrink-0 mt-0.5" />
+      <span style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "var(--muted-foreground)" }}>
+        {text}
+      </span>
+    </div>
+  );
+}
+
+function ScoreLabel({ text }: { text: string }) {
+  return (
+    <span
+      style={{
+        fontFamily: "var(--font-mono)",
+        fontSize: 11,
+        letterSpacing: "0.08em",
+        color: "var(--secondary)",
+      }}
+    >
+      {text}
+    </span>
+  );
+}
+
 const AGENT_META: Record<AgentType, { label: string; icon: React.ReactNode }> = {
   TRACE_LOOP_EFFICIENCY: { label: "Loop Efficiency Agent", icon: <Zap size={13} /> },
   BLIND_OUTCOME_VERIFIER: { label: "Blind Outcome Verifier", icon: <Terminal size={13} /> },
   RELIABILITY_TREND: { label: "Reliability Trend Agent", icon: <BarChart2 size={13} /> },
 };
 
+// Color scale: green = good, amber = mid, red = bad.
+// Trust score: higher is better. Severity score: higher is worse (inverse).
+function trustColor(score: number) {
+  return score >= 70 ? "var(--primary)" : score >= 40 ? "#B87D2F" : "var(--destructive)";
+}
+function severityColor(score: number) {
+  return score <= 30 ? "var(--primary)" : score <= 60 ? "#B87D2F" : "var(--destructive)";
+}
+
 // ScoreDial
 function ScoreDial({ score }: { score: number }) {
-  const fill = score >= 70 ? "var(--primary)" : score >= 40 ? "#B87D2F" : "var(--destructive)";
+  const fill = trustColor(score);
   return (
     <div className="flex flex-col items-center gap-1">
       <div className="relative w-20 h-20 border-4 border-black flex items-center justify-center bg-background">
@@ -206,12 +271,25 @@ function AgentCard({
           <span style={{ fontFamily: "var(--font-display)", fontSize: 13 }}>{meta.label}</span>
         </div>
         <div className="flex items-center gap-3">
-          <Badge variant="secondary" className="text-sm px-2 py-0.5">{severityScore}</Badge>
+          <div className="flex flex-col items-end gap-0.5">
+            <ScoreLabel text="SEVERITY" />
+            <div className="flex items-center gap-1.5">
+              <Badge
+                variant="outline"
+                className="text-sm px-2 py-0.5 border-black"
+                style={{ backgroundColor: severityColor(severityScore), color: "#F4F1EA" }}
+              >
+                {severityScore}
+              </Badge>
+              <ScoreHintIcon text={SEVERITY_SCORE_HINT} />
+            </div>
+          </div>
           <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted-foreground)" }}>
             {open ? "▲" : "▼"}
           </span>
         </div>
       </Button>
+      <ScoreHintMobile text={SEVERITY_SCORE_HINT} className="px-5 pb-3 -mt-1" />
       {open && (
         <div className="border-t-2 border-black">
           {!parsed && (
@@ -389,9 +467,14 @@ export default function AuditDetailPage() {
           <div className="border-2 border-black shadow-[4px_4px_0px_#0D0D0D] flex flex-wrap items-center gap-6 px-7 py-6 bg-card">
             <ScoreDial score={audit.overallScore} />
             <div className="flex-1 min-w-[200px]">
-              <span style={{ fontFamily: "var(--font-display)", fontSize: 24, letterSpacing: "-0.02em" }}>
-                {audit.overallScore < 40 ? "Unreliable" : audit.overallScore < 70 ? "Uncertain" : "Trustworthy"}
-              </span>
+              <ScoreLabel text="TRUST SCORE" />
+              <div className="flex items-center gap-2">
+                <span style={{ fontFamily: "var(--font-display)", fontSize: 24, letterSpacing: "-0.02em" }}>
+                  {audit.overallScore < 40 ? "Unreliable" : audit.overallScore < 70 ? "Uncertain" : "Trustworthy"}
+                </span>
+                <ScoreHintIcon text={OVERALL_SCORE_HINT} />
+              </div>
+              <ScoreHintMobile text={OVERALL_SCORE_HINT} />
             </div>
           </div>
         )}

@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from "react-router";
-import { Terminal, Send, History, TrendingUp, User, Shield, LogOut, ChevronRight } from "lucide-react";
+import { Terminal, Send, History, TrendingUp, User, Shield, LogOut, ChevronRight, Menu } from "lucide-react";
 import { useAuthContext } from "@/context/AuthContext";
 import { useSystemHealth } from "@/hooks/useSystemHealth";
 import { Button } from "@/components/ui/button";
@@ -41,11 +41,40 @@ export default function AppShell() {
     navigate("/");
   }
 
-  return (
+   return (
     <div className="flex min-h-screen bg-background" style={{ fontFamily: "var(--font-body)" }}>
-
-      <aside className="w-[224px] shrink-0 flex flex-col border-r-2 border-black sticky top-0 h-screen bg-primary">
-
+ 
+      {/* Mobile-only checkbox drives the sidebar open/close state via CSS, no JS needed */}
+      <input type="checkbox" id="app-shell-toggle" className="peer hidden" />
+ 
+      {/* Mobile top bar with hamburger toggle (hidden on md+) */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-30 flex items-center gap-2.5 border-b-2 border-black px-4 py-3 bg-primary">
+        <label
+          htmlFor="app-shell-toggle"
+          aria-label="Toggle navigation menu"
+          className="w-8 h-8 border-2 border-black flex items-center justify-center shrink-0 bg-secondary cursor-pointer"
+        >
+          <Menu size={16} className="text-primary-foreground" />
+        </label>
+        <span style={{ fontFamily: "var(--font-display)", color: "var(--primary-foreground)", fontSize: 15, letterSpacing: "-0.02em" }}>
+          TracePilot
+        </span>
+      </div>
+ 
+      {/* Backdrop: only visible on mobile once the checkbox is checked */}
+      <label
+        htmlFor="app-shell-toggle"
+        aria-hidden="true"
+        className="hidden peer-checked:block md:!hidden fixed inset-0 z-30 bg-black/50"
+      />
+ 
+      <aside
+        className="w-[224px] shrink-0 flex flex-col border-r-2 border-black h-screen bg-primary
+                   fixed inset-y-0 left-0 z-40 -translate-x-full transition-transform duration-200
+                   peer-checked:translate-x-0
+                   md:sticky md:top-0 md:translate-x-0 md:z-auto"
+      >
+ 
         {/* Logo */}
         <div className="border-b-2 border-black px-5 py-4 flex items-center gap-2.5">
           <div className="w-8 h-8 border-2 border-black flex items-center justify-center shrink-0 bg-secondary">
@@ -55,7 +84,7 @@ export default function AppShell() {
             TracePilot
           </span>
         </div>
-
+ 
         {/* Live indicator */}
         <div
           className="border-b-2 border-black px-5 py-2.5 flex items-center gap-2"
@@ -85,18 +114,21 @@ export default function AppShell() {
             {dotLabel}
           </span>
         </div>
-
+ 
         {/* Nav label */}
         <div className="px-5 pt-5 pb-2">
           <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "rgba(244,241,234,0.4)", letterSpacing: "0.12em" }}>
             WORKSPACE
           </span>
         </div>
-
+ 
         {/* Nav items */}
         <nav className="flex-1 px-3 space-y-1">
           {navItems.map(({ to, label, icon }) => (
-            <NavLink key={to} to={to}
+            <NavLink key={to} to={to} onClick={() => {
+              const toggle = document.getElementById("app-shell-toggle") as HTMLInputElement | null;
+              if (toggle) toggle.checked = false;
+            }}
               className={({ isActive }) =>
                 `flex items-center gap-2.5 px-3 py-2.5 border-2 transition-all ${
                   isActive
@@ -114,7 +146,7 @@ export default function AppShell() {
               )}
             </NavLink>
           ))}
-
+ 
           {isAdmin && (
             <>
               <div className="mx-3 my-3 border-t border-black/20" />
@@ -138,7 +170,7 @@ export default function AppShell() {
             </>
           )}
         </nav>
-
+ 
         {/* User chip */}
         <div className="border-t-2 border-black p-3 space-y-2" style={{ background: "#162D23" }}>
           <div className="flex items-center gap-2.5 px-2 py-2">
@@ -170,8 +202,8 @@ export default function AppShell() {
           </Button>
         </div>
       </aside>
-
-      <main className="flex-1 min-w-0">
+ 
+      <main className="flex-1 min-w-0 pt-[57px] md:pt-0">
         <Outlet />
       </main>
     </div>

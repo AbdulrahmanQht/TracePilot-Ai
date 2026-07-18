@@ -16,7 +16,7 @@ export async function getAudit(id: string): Promise<AuditResponse> {
   return AuditResponseSchema.parse(data);
 }
 
-export async function listAudits(params?: { page?: number; size?: number }) {
+export async function listAudits(params?: { page?: number; size?: number; sort?: string }) {
   const { data } = await apiClient.get("/audits", { params });
   return AuditPageSchema.parse(data);
 }
