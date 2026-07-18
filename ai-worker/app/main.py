@@ -127,7 +127,7 @@ app.add_middleware(
 )
 
 
-@app.get("/ai-worker/v1/health")
+@app.api_route("/ai-worker/v1/health", methods=["GET", "HEAD"])
 def health_check(request: Request):
     from datetime import datetime, timezone
 
@@ -137,6 +137,7 @@ def health_check(request: Request):
             "service": "tracepilot-worker",
             "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         }
+
 
 if __name__ == "__main__":
     import uvicorn
